@@ -19,10 +19,16 @@ class EmbeddingManager:
             self.config.model_name = model_name
 
         # Load model (default to CPU, can specify 'cuda' if available)
-        self.model = SentenceTransformer(
-            self.config.model_name,
-            device=device or ("cuda" if self._has_cuda() else "cpu")
-        )
+        try:
+            self.model = SentenceTransformer(
+                self.config.model_name,
+                device=device or ("cuda" if self._has_cuda() else "cpu")
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load embedding model '{self.config.model_name}'. "
+                f"Ensure the model is available. Error: {e}"
+            )
 
     def _has_cuda(self) -> bool:
         """Check if CUDA is available."""
