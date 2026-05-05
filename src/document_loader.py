@@ -1,7 +1,7 @@
 """Document loader using PyMuPDF."""
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pathlib import Path
 
 import fitz  # PyMuPDF
@@ -11,7 +11,7 @@ import fitz  # PyMuPDF
 class Document:
     """Represents a loaded document chunk."""
     page_content: str
-    metadata: dict
+    metadata: Dict[str, any]
 
 
 class DocumentLoader:
@@ -28,20 +28,19 @@ class DocumentLoader:
         documents = []
 
         try:
-            doc = fitz.open(str(pdf_path))
-            for page_num, page in enumerate(doc):
-                text = page.get_text()
-                if text.strip():
-                    documents.append(Document(
-                        page_content=text,
-                        metadata={
-                            "source": pdf_path.name,
-                            "page": page_num + 1,
-                            "total_pages": len(doc),
-                            "section": ""
-                        }
-                    ))
-            doc.close()
+            with fitz.open(str(pdf_path)) as doc:
+                for page_num, page in enumerate(doc):
+                    text = page.get_text()
+                    if text.strip():
+                        documents.append(Document(
+                            page_content=text,
+                            metadata={
+                                "source": pdf_path.name,
+                                "page": page_num + 1,
+                                "total_pages": len(doc),
+                                "section": ""
+                            }
+                        ))
         except Exception as e:
             raise ValueError(f"Failed to load PDF {pdf_path}: {e}")
 
