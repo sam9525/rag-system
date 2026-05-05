@@ -23,7 +23,7 @@ class RAGQueryResult:
 class RAGSystem:
     """Main RAG system orchestrating retrieval and generation."""
 
-    def __init__(self, source_dir: Path = None):
+    def __init__(self, source_dir: Optional[Path] = None):
         """Initialize RAG system with all components."""
         self.source_dir = source_dir or Path("sources")
 
@@ -47,8 +47,7 @@ class RAGSystem:
             raise ValueError(f"Source directory does not exist: {source_dir}")
 
         # Load documents
-        loader = DocumentLoader(source_dir)
-        documents = loader.load_all_pdfs()
+        documents = self.document_loader.load_all_pdfs()
 
         # Chunk documents
         all_chunks = []
