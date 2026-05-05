@@ -1,7 +1,7 @@
 """Document loader using PyMuPDF."""
 
 from dataclasses import dataclass
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from pathlib import Path
 
 import fitz  # PyMuPDF
@@ -11,7 +11,7 @@ import fitz  # PyMuPDF
 class Document:
     """Represents a loaded document chunk."""
     page_content: str
-    metadata: Dict[str, any]
+    metadata: Dict[str, Any]
 
 
 class DocumentLoader:
