@@ -20,7 +20,7 @@ class SemanticChunker:
 
     HEADING_PATTERNS = [
         r'^#{1,3}\s+(.+)$',  # Markdown headings
-        r'^([A-Z][A-Z\s]{3,})\s*$',  # ALL CAPS headings
+        r'^([A-Z][A-Z\s]{5,})\s*$',  # ALL CAPS headings
         r'^(\d+\.\s+[A-Z].+)$',  # Numbered sections
     ]
 
@@ -32,7 +32,7 @@ class SemanticChunker:
         """Check if a line is a heading."""
         line = line.strip()
         for pattern in self.HEADING_PATTERNS:
-            if re.match(pattern, line, re.MULTILINE):
+            if re.match(pattern, line):
                 return True
         return False
 
@@ -68,11 +68,14 @@ class SemanticChunker:
             combined = "\n".join(buffer["content"]) + "\n" + "\n".join(chunk["content"])
 
             if len(combined) >= min_size:
-                if buffer["content"]:
-                    merged.append(buffer)
+                merged.append({
+                    "heading": buffer.get("heading", ""),
+                    "content": buffer["content"]
+                })
                 buffer = {"heading": chunk.get("heading", ""), "content": chunk["content"]}
             else:
                 buffer["content"].extend(chunk["content"])
+                buffer["heading"] = chunk.get("heading", "") or buffer["heading"]
 
         if buffer["content"]:
             merged.append(buffer)
