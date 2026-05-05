@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from typing import List, Tuple, Optional, Dict
-import numpy as np
 
 from src.embeddings import EmbeddingManager
 from src.vector_store import VectorStore, SearchResult
@@ -144,25 +143,21 @@ class HybridRetriever:
             k=self.config.rrf_k
         )
 
+        # Build lookup dicts for O(1) access
+        sem_lookup = {t: (s, m) for t, s, m in semantic_results}
+        kw_lookup = {r.text: r.score for r in keyword_results}
+
         # Build final results with metadata
         results = []
         for text, rrf_score in fused_ranking[:final_top_k]:
-            # Get metadata from vector store
-            metadata = {}
-            for t, _, m in semantic_results:
-                if t == text:
-                    metadata = m
-                    break
-
-            # Get individual scores
-            semantic_score = next((s for t, s, _ in semantic_results if t == text), None)
-            kw_score = next((r.score for r in keyword_results if r.text == text), None)
+            sem_score, metadata = sem_lookup.get(text, (None, {}))
+            kw_score = kw_lookup.get(text)
 
             results.append(RRFResult(
                 text=text,
                 score=rrf_score,
                 metadata=metadata,
-                semantic_score=semantic_score,
+                semantic_score=sem_score,
                 keyword_score=kw_score
             ))
 
