@@ -35,6 +35,9 @@ class VectorStore:
 
         # FAISS requires float32
         vectors = vectors.astype('float32')
+        # L2 normalize for cosine similarity with IndexFlatIP
+        norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+        vectors = vectors / norms
 
         self.index.add(vectors)
         self.texts.extend(texts)
@@ -50,6 +53,11 @@ class VectorStore:
 
         if len(query_vector.shape) == 1:
             query_vector = query_vector.reshape(1, -1)
+
+        # L2 normalize query vector for cosine similarity
+        norm = np.linalg.norm(query_vector)
+        if norm > 0:
+            query_vector = query_vector / norm
 
         distances, indices = self.index.search(query_vector, min(top_k, self.count()))
 
@@ -71,6 +79,11 @@ class VectorStore:
     def load(self, path: str):
         """Load index from disk."""
         self.index = faiss.read_index(path)
+        loaded_dim = self.index.d
+        if loaded_dim != self.dimension:
+            raise ValueError(
+                f"Loaded index dimension {loaded_dim} != expected {self.dimension}"
+            )
 
     def clear(self):
         """Clear all vectors from the store."""
