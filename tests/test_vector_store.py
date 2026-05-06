@@ -29,3 +29,25 @@ class TestVectorStore:
         query = np.random.randn(128).astype('float32')
         results = store.search(query, top_k=3)
         assert len(results) == 3
+
+    def test_inject_custom_index(self):
+        """Test VectorStore accepts injected index."""
+        import faiss
+        custom_index = faiss.IndexFlatIP(128)
+        store = VectorStore(dimension=128, index=custom_index)
+
+        assert store.index is custom_index
+        assert store.count() == 0
+
+    def test_inject_custom_normalizer(self):
+        """Test VectorStore accepts custom normalizer."""
+        def noop_normalize(vectors):
+            return vectors.astype('float32')
+
+        store = VectorStore(dimension=128, normalizer=noop_normalize)
+
+        vectors = np.random.rand(2, 128).astype('float32')
+        result = store.normalizer(vectors)
+
+        assert result.dtype == np.float32
+        assert result.shape == (2, 128)

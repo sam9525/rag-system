@@ -18,12 +18,26 @@ class SearchResult:
 class VectorStore:
     """FAISS-based vector store for semantic search."""
 
-    def __init__(self, dimension: int):
-        """Initialize empty vector store."""
+    def __init__(self, dimension: int, index=None, normalizer=None):
+        """Initialize vector store.
+
+        Args:
+            dimension: Embedding dimension.
+            index: Optional FAISS index. Creates IndexFlatIP if None.
+            normalizer: Optional normalizer function. Defaults to L2 normalizer.
+        """
         self.dimension = dimension
-        self.index = faiss.IndexFlatIP(dimension)  # Inner Product Search (cosine sim with normalized)
+        self.index = index or faiss.IndexFlatIP(dimension)
+        self.normalizer = normalizer or self._l2_normalize
         self.texts: List[str] = []
         self.metadata_list: List[dict] = []
+
+    def _l2_normalize(self, vectors: np.ndarray) -> np.ndarray:
+        """L2 normalize vectors for cosine similarity."""
+        vectors = vectors.astype('float32')
+        norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+        vectors = vectors / norms
+        return vectors
 
     def add_vectors(self, vectors: np.ndarray, texts: List[str], metadata_list: Optional[List[dict]] = None):
         """Add vectors to the index."""
@@ -33,11 +47,7 @@ class VectorStore:
         if vectors.shape[1] != self.dimension:
             raise ValueError(f"Vector dimension {vectors.shape[1]} != expected {self.dimension}")
 
-        # FAISS requires float32
-        vectors = vectors.astype('float32')
-        # L2 normalize for cosine similarity with IndexFlatIP
-        norms = np.linalg.norm(vectors, axis=1, keepdims=True)
-        vectors = vectors / norms
+        vectors = self.normalizer(vectors)
 
         self.index.add(vectors)
         self.texts.extend(texts)
