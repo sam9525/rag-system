@@ -38,15 +38,24 @@ class TestSemanticChunker:
 
     def test_chunker_with_custom_heading_detector(self):
         """Test chunker uses injected heading detector."""
-        # Custom patterns that treat "---" as section breaks
-        custom_detector = RegexHeadingDetector(patterns=[r'^---+$'])
+        from src.heading_detector import RegexHeadingDetector
 
-        chunker = SemanticChunker()
-        chunker.heading_detector = custom_detector
-
+        # Without custom detector - "---" is not a heading (default patterns)
+        default_chunker = SemanticChunker()
         text = "Intro paragraph\n\n---\nNew section\n\nMore content"
-        chunks = chunker.create_chunks(text, {"source": "test.pdf"})
+        default_chunks = default_chunker.create_chunks(text, {"source": "test.pdf"})
+        default_count = len(default_chunks)
 
-        # Should split at "---" if custom detector is used
-        # This test documents expected behavior
-        assert len(chunks) >= 1
+        # With custom detector that treats "---" as a heading
+        custom_detector = RegexHeadingDetector(patterns=[r'^---+$'])
+        custom_chunker = SemanticChunker()
+        custom_chunker.heading_detector = custom_detector
+        custom_chunks = custom_chunker.create_chunks(text, {"source": "test.pdf"})
+        custom_count = len(custom_chunks)
+
+        # The custom detector should cause same or more splits (at the "---" boundary)
+        # because "---" is now recognized as a heading
+        assert custom_count >= default_count, (
+            f"Custom detector should produce same or more chunks. "
+            f"Got default={default_count}, custom={custom_count}"
+        )
