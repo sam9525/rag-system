@@ -10,6 +10,7 @@ load_dotenv()
 @dataclass
 class EmbeddingConfig:
     """Embedding configuration."""
+
     model_name: str = "BAAI/bge-large-en-v1.5"
     dimension: int = 1024
     batch_size: int = 16
@@ -19,6 +20,7 @@ class EmbeddingConfig:
 @dataclass
 class RetrievalConfig:
     """Retrieval configuration."""
+
     semantic_top_k: int = 50
     keyword_top_k: int = 50
     final_top_k: int = 3
@@ -28,8 +30,9 @@ class RetrievalConfig:
 @dataclass
 class GenerationConfig:
     """Generation configuration."""
+
     base_url: str = "http://localhost:11434"
-    model: str = "gemma4"
+    model: str = "gemma4:e4b"
     temperature: float = 0.3
     max_tokens: int = 512
     stream: bool = False
@@ -38,6 +41,7 @@ class GenerationConfig:
 @dataclass
 class ChunkingConfig:
     """Chunking configuration."""
+
     min_chunk_size: int = 200
     max_chunk_size: int = 1500
     overlap_size: int = 200
@@ -46,6 +50,7 @@ class ChunkingConfig:
 @dataclass
 class RAGConfig:
     """Main RAG configuration."""
+
     embedding: EmbeddingConfig = None
     retrieval: RetrievalConfig = None
     generation: GenerationConfig = None
