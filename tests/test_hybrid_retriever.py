@@ -105,3 +105,38 @@ class TestHybridRetriever:
 
         # "physics" embedding should match physics chunk
         assert results[0].text.startswith("Physics")
+
+    def test_retriever_with_mock_embedding_manager(self):
+        """Test HybridRetriever works with mock EmbeddingManager."""
+        class MockEmbeddingManager:
+            dimension = 128
+            model_name = "mock"
+
+            def embed_text(self, text):
+                import numpy as np
+                vec = np.zeros(128)
+                if "physics" in text.lower():
+                    vec[0] = 1.0
+                elif "chemistry" in text.lower():
+                    vec[1] = 1.0
+                return vec
+
+            def embed_batch(self, texts, show_progress=False):
+                import numpy as np
+                return np.array([self.embed_text(t) for t in texts])
+
+        mock_emb = MockEmbeddingManager()
+        retriever = HybridRetriever(embedding_manager=mock_emb, embedding_dim=128)
+
+        # Index some chunks
+        chunks = [
+            {"text": "Physics deals with matter and energy", "metadata": {"source": "p.pdf", "page": 1}},
+            {"text": "Chemistry is about substances and reactions", "metadata": {"source": "c.pdf", "page": 1}},
+        ]
+
+        retriever.index_documents(chunks)
+        results = retriever.search("physics research", top_k=2)
+
+        # Should return results
+        assert len(results) >= 1
+        assert results[0].text.startswith("Physics")
