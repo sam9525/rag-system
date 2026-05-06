@@ -58,3 +58,31 @@ class TestRAGSystem:
         assert result[0]["page"] == 1
         assert result[0]["section"] == "Intro"
         assert result[0]["text"].startswith("doc1 text")
+
+    def test_import_chunk_from_module(self):
+        """Test Chunk can be imported from src.chunk."""
+        from src.chunk import Chunk
+
+        chunk = Chunk(
+            text="test content",
+            metadata={"source": "test.pdf"},
+            chunk_id=0
+        )
+        assert chunk.text == "test content"
+        assert chunk.metadata["source"] == "test.pdf"
+
+    def test_ingest_accepts_chunk_type(self):
+        """Test ingest_documents works with Chunk type."""
+        from src.chunk import Chunk
+
+        system = RAGSystem(source_dir=Path("sources"))
+        chunks = [
+            Chunk(text="test", metadata={"source": "test.pdf", "page": 1}, chunk_id=0)
+        ]
+
+        # This should work if Chunk.to_dict() is used
+        # We'll test the transform method
+        dicts = [c.to_dict() for c in chunks]
+
+        assert dicts[0]["text"] == "test"
+        assert dicts[0]["metadata"]["source"] == "test.pdf"

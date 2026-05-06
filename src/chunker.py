@@ -1,18 +1,10 @@
 """Semantic chunker that splits by document structure."""
 
 import re
-from dataclasses import dataclass
-from typing import List, Dict, Optional
+from typing import List, Dict
 
+from src.chunk import Chunk
 from src.config import config
-
-
-@dataclass
-class Chunk:
-    """Represents a document chunk."""
-    text: str
-    metadata: Dict
-    chunk_id: int = 0
 
 
 class SemanticChunker:
