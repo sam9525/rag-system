@@ -1,7 +1,8 @@
 """Tests for semantic chunker."""
 
 import pytest
-from src.chunker import SemanticChunker, Chunk
+from src.chunker import SemanticChunker
+from src.chunk import Chunk
 
 
 class TestSemanticChunker:
