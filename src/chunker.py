@@ -1,32 +1,29 @@
 """Semantic chunker that splits by document structure."""
 
 import re
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from src.chunk import Chunk
 from src.config import config
+from src.heading_detector import RegexHeadingDetector, HeadingDetector
 
 
 class SemanticChunker:
     """Chunks documents by semantic structure (headings, sections)."""
 
-    HEADING_PATTERNS = [
-        r'^#{1,3}\s+(.+)$',  # Markdown headings
-        r'^([A-Z][A-Z\s]{5,})\s*$',  # ALL CAPS headings
-        r'^(\d+\.\s+[A-Z].+)$',  # Numbered sections
-    ]
+    def __init__(self, chunk_config=None, heading_detector: Optional[HeadingDetector] = None):
+        """Initialize with optional custom config and detector.
 
-    def __init__(self, chunk_config=None):
-        """Initialize with optional custom config."""
+        Args:
+            chunk_config: Configuration for chunking behavior.
+            heading_detector: Heading detection strategy. Uses RegexHeadingDetector if None.
+        """
         self.config = chunk_config or config.chunking
+        self.heading_detector = heading_detector or RegexHeadingDetector()
 
     def is_heading(self, line: str) -> bool:
         """Check if a line is a heading."""
-        line = line.strip()
-        for pattern in self.HEADING_PATTERNS:
-            if re.match(pattern, line):
-                return True
-        return False
+        return self.heading_detector.is_heading(line)
 
     def split_by_headings(self, text: str) -> List[Dict]:
         """Split text into sections at heading boundaries."""
