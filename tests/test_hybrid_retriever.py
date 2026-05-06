@@ -29,10 +29,10 @@ class TestHybridRetriever:
         # doc_b should be ranked first (top in both)
         assert fused[0][0] == "doc_b"
 
+    @pytest.mark.skip(reason="Requires full integration test with real embeddings")
     def test_search_returns_final_top_k(self):
         """Test search returns final top k chunks."""
         retriever = HybridRetriever(embedding_dim=128)
-        # Would need mocked embeddings
         pass
 
     def test_empty_corpus_handling(self):
@@ -44,11 +44,18 @@ class TestHybridRetriever:
     def test_inject_mock_embedding_manager(self):
         """Test HybridRetriever accepts injected embedding manager."""
         class MockEmbeddingManager:
-            dimension = 128
-            model_name = "mock"
+            @property
+            def dimension(self):
+                return 128
+
+            @property
+            def model_name(self):
+                return "mock"
+
             def embed_text(self, text):
                 import numpy as np
                 return np.zeros(128)
+
             def embed_batch(self, texts, show_progress=False):
                 import numpy as np
                 return np.zeros((len(texts), 128))
@@ -62,8 +69,13 @@ class TestHybridRetriever:
     def test_rrf_fusion_with_mock_embeddings(self):
         """Test RRF fusion logic with controlled embedding scores."""
         class MockEmbeddingManager:
-            dimension = 128
-            model_name = "mock"
+            @property
+            def dimension(self):
+                return 128
+
+            @property
+            def model_name(self):
+                return "mock"
 
             def embed_text(self, text):
                 import numpy as np
