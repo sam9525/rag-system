@@ -35,6 +35,30 @@ class RAGSystem:
 
         self._indexed = False
 
+    def _transform_chunks_for_generator(self, chunks: List[RRFResult]) -> List[Dict]:
+        """Transform RRFResult chunks into format expected by generator."""
+        return [
+            {
+                "text": chunk.text,
+                "score": chunk.score,
+                "metadata": chunk.metadata
+            }
+            for chunk in chunks
+        ]
+
+    def _format_sources(self, chunks: List[RRFResult]) -> List[Dict]:
+        """Format retrieved chunks into sources list for display."""
+        return [
+            {
+                "text": chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
+                "source": chunk.metadata.get("source", "unknown"),
+                "page": chunk.metadata.get("page", "?"),
+                "section": chunk.metadata.get("section", ""),
+                "score": chunk.score
+            }
+            for chunk in chunks
+        ]
+
     def ingest_documents(self, source_dir: Path = None) -> Dict:
         """Ingest and index all documents.
 
@@ -93,15 +117,8 @@ class RAGSystem:
             final_top_k=top_k
         )
 
-        # Format chunks for generator
-        chunks_for_gen = [
-            {
-                "text": chunk.text,
-                "score": chunk.score,
-                "metadata": chunk.metadata
-            }
-            for chunk in retrieved_chunks
-        ]
+        # Transform chunks for generator
+        chunks_for_gen = self._transform_chunks_for_generator(retrieved_chunks)
 
         # Generate answer
         try:
@@ -114,17 +131,8 @@ class RAGSystem:
                 retrieved_chunks=retrieved_chunks
             )
 
-        # Build sources list
-        sources = [
-            {
-                "text": chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
-                "source": chunk.metadata.get("source", "unknown"),
-                "page": chunk.metadata.get("page", "?"),
-                "section": chunk.metadata.get("section", ""),
-                "score": chunk.score
-            }
-            for chunk in retrieved_chunks
-        ]
+        # Format sources for display
+        sources = self._format_sources(retrieved_chunks)
 
         return RAGQueryResult(
             answer=answer,
