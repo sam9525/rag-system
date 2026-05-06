@@ -38,3 +38,26 @@ class TestOllamaGenerator:
             # If it succeeds, Ollama is running
         except OllamaConnectionError:
             pass  # Expected if Ollama not running
+
+    def test_is_available_returns_connection_status(self):
+        """Test is_available returns true when Ollama running, false otherwise."""
+        generator = OllamaGenerator()
+
+        # Mock the connection check
+        generator._check_connection = lambda: True
+        assert generator.is_available() == True
+
+        generator._check_connection = lambda: False
+        assert generator.is_available() == False
+
+    def test_generate_raises_if_unavailable(self):
+        """Test generate raises OllamaConnectionError if unavailable."""
+        generator = OllamaGenerator()
+
+        # Mock unavailable state
+        generator._check_connection = lambda: False
+
+        chunks = [{"text": "test", "score": 0.9, "metadata": {"source": "test.pdf", "page": 1}}]
+
+        with pytest.raises(OllamaConnectionError):
+            generator.generate("test question", chunks)

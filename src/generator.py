@@ -56,6 +56,14 @@ RESPONSE FORMAT:
         except requests.exceptions.RequestException:
             return False
 
+    def is_available(self) -> bool:
+        """Check if Ollama is available.
+
+        Returns:
+            True if Ollama is running and accessible, False otherwise.
+        """
+        return self._check_connection()
+
     def _build_prompt(self, question: str, chunks: List[Dict]) -> str:
         """Build the full prompt with context chunks."""
 
@@ -97,6 +105,10 @@ ANSWER:"""
 
         Returns:
             Generated response string
+
+        Raises:
+            OllamaConnectionError: If Ollama is not available.
+            OllamaGenerationError: If generation fails.
         """
         if not self._check_connection():
             raise OllamaConnectionError(
