@@ -22,12 +22,21 @@ class RRFResult:
 class HybridRetriever:
     """Combines semantic (FAISS) and keyword (BM25) retrieval with RRF fusion."""
 
-    def __init__(self, embedding_dim: int = None, config_override=None):
-        """Initialize hybrid retriever."""
+    def __init__(self, embedding_manager: EmbeddingManager = None, embedding_dim: int = None, config_override=None):
+        """Initialize hybrid retriever.
+
+        Args:
+            embedding_manager: Optional embedding manager. Creates default if None.
+            embedding_dim: Dimension for vector store (required if no manager provided).
+            config_override: Optional config replacement.
+        """
         self.config = config_override or config.retrieval
         self._embedding_dim = embedding_dim or config.embedding.dimension
 
-        self.embedding_manager = EmbeddingManager()
+        if embedding_manager is not None:
+            self.embedding_manager = embedding_manager
+        else:
+            self.embedding_manager = EmbeddingManager()
         self.vector_store = VectorStore(self._embedding_dim)
         self.bm25_retriever = BM25RetrieverWrapper()
 
