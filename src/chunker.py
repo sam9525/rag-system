@@ -133,7 +133,8 @@ class SemanticChunker:
 
             # Add overlap with previous chunk
             if idx > 0:
-                prev_text = "\n".join(final_chunks[idx - 1]["content"])
+                prev_content_list = final_chunks[idx - 1]["content"]
+                prev_text = "\n".join(prev_content_list)
                 overlap_text = prev_text[-self.config.overlap_size:]
                 text_content = overlap_text + "\n" + text_content
 
