@@ -1,7 +1,7 @@
 """Main RAG system orchestrator."""
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from pathlib import Path
 
 from src.config import config
@@ -9,6 +9,7 @@ from src.document_loader import DocumentLoader
 from src.chunker import SemanticChunker, Chunk
 from src.hybrid_retriever import HybridRetriever, RRFResult
 from src.generator import OllamaGenerator, OllamaConnectionError, OllamaAPIError
+from src.index_manager import IndexManager, IndexManifest
 
 
 @dataclass
@@ -23,15 +24,17 @@ class RAGQueryResult:
 class RAGSystem:
     """Main RAG system orchestrating retrieval and generation."""
 
-    def __init__(self, source_dir: Optional[Path] = None):
+    def __init__(self, source_dir: Optional[Path] = None, index_dir: Optional[Path] = None):
         """Initialize RAG system with all components."""
         self.source_dir = source_dir or Path("sources")
+        self.index_dir = index_dir or Path(".rag_index")
 
         # Initialize components
         self.document_loader = DocumentLoader(self.source_dir)
         self.chunker = SemanticChunker()
         self.retriever = HybridRetriever()
         self.generator = OllamaGenerator()
+        self.index_manager = IndexManager(self.index_dir)
 
         self._indexed = False
 
@@ -59,19 +62,59 @@ class RAGSystem:
             for chunk in chunks
         ]
 
-    def ingest_documents(self, source_dir: Path = None) -> Dict:
+    def ingest_documents(self, source_dir: Path = None, force_rebuild: bool = False) -> Dict:
         """Ingest and index all documents.
 
+        Args:
+            source_dir: Source directory (default: self.source_dir)
+            force_rebuild: If True, rebuild index even if cached version exists
+
         Returns:
-            Dictionary with ingestion statistics
+            Dictionary with ingestion statistics and warnings
         """
         source_dir = source_dir or self.source_dir
 
         if not Path(source_dir).exists():
             raise ValueError(f"Source directory does not exist: {source_dir}")
 
+        # Check if we can use cached index
+        if not force_rebuild and self.index_manager.is_index_valid(source_dir):
+            manifest = self.index_manager.load_manifest()
+            print(f"Loading cached index for {len(manifest.files)} files...")
+            # Load the FAISS index
+            index_path = self.index_dir / "vectors.faiss"
+            if index_path.exists():
+                self.retriever.vector_store.load(str(index_path))
+            self._indexed = True
+            total_chunks = sum(f["chunk_count"] for f in manifest.files.values())
+            return {
+                "documents_loaded": len(manifest.files),
+                "chunks_created": total_chunks,
+                "source_dir": str(source_dir),
+                "cached": True,
+                "empty_pages": {}
+            }
+
+        # Dirty check - show what changed
+        pdf_files = self.document_loader.get_pdf_files()
+        current_files = [f.name for f in pdf_files]
+        dirty = self.index_manager.detect_dirty_files(source_dir, current_files)
+
+        if dirty["new"]:
+            print(f"New files to index: {dirty['new']}")
+        if dirty["modified"]:
+            print(f"Modified files to re-index: {dirty['modified']}")
+        if dirty["deleted"]:
+            print(f"Removed files from index: {dirty['deleted']}")
+
         # Load documents
-        documents = self.document_loader.load_all_pdfs()
+        loader = DocumentLoader(source_dir)
+        documents, empty_pages_by_file = loader.load_all_pdfs()
+
+        # Warn about empty pages (scanned/image PDFs)
+        if empty_pages_by_file:
+            for filename, pages in empty_pages_by_file.items():
+                print(f"WARNING: {filename} has {len(pages)} empty page(s) - likely a scanned PDF: pages {pages}")
 
         # Chunk documents
         all_chunks = []
@@ -88,12 +131,30 @@ class RAGSystem:
 
         # Index chunks
         self.retriever.index_documents(all_chunks)
+
+        # Save index to disk
+        self.retriever.vector_store.save(str(self.index_dir / "vectors.faiss"))
+
+        # Save manifest
+        manifest = IndexManifest(index_dir=self.index_dir)
+        files_to_track = set(doc.metadata["source"] for doc in documents)
+        chunk_count_per_file = len(all_chunks) // max(len(files_to_track), 1)
+        for filename in files_to_track:
+            file_path = source_dir / filename
+            if file_path.exists():
+                checksum = self.index_manager.file_checksum(file_path)
+                manifest.add_file(filename, checksum, chunk_count_per_file)
+
+        self.index_manager.save_manifest(manifest)
         self._indexed = True
 
         return {
-            "documents_loaded": len(documents),
+            "documents_loaded": len(files_to_track),
             "chunks_created": len(all_chunks),
-            "source_dir": str(source_dir)
+            "source_dir": str(source_dir),
+            "cached": False,
+            "empty_pages": empty_pages_by_file,
+            "dirty_files": dirty
         }
 
     def query(self, question: str, top_k: int = 3) -> RAGQueryResult:
@@ -158,5 +219,6 @@ class RAGSystem:
             "indexed": self._indexed,
             "document_count": self.retriever.count(),
             "model": self.generator.config.model,
-            "embedding_model": self.retriever.embedding_manager.model_name
+            "embedding_model": self.retriever.embedding_manager.model_name,
+            "index_dir": str(self.index_dir)
         }
