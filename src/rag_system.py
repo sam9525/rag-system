@@ -8,7 +8,7 @@ from src.config import config
 from src.document_loader import DocumentLoader
 from src.chunker import SemanticChunker, Chunk
 from src.hybrid_retriever import HybridRetriever, RRFResult
-from src.generator import OllamaGenerator, OllamaConnectionError
+from src.generator import OllamaGenerator, OllamaConnectionError, OllamaAPIError
 
 
 @dataclass
@@ -125,8 +125,15 @@ class RAGSystem:
             answer = self.generator.generate(question, chunks_for_gen)
         except OllamaConnectionError as e:
             return RAGQueryResult(
-                answer=f"Error: {e}",
-                sources=[],
+                answer=f"Connection error: {e}",
+                sources=self._format_sources(retrieved_chunks),
+                query=question,
+                retrieved_chunks=retrieved_chunks
+            )
+        except OllamaAPIError as e:
+            return RAGQueryResult(
+                answer=f"API error: {e}",
+                sources=self._format_sources(retrieved_chunks),
                 query=question,
                 retrieved_chunks=retrieved_chunks
             )
