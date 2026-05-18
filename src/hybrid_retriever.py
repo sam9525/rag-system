@@ -59,7 +59,7 @@ class HybridRetriever:
         self.vector_store.add_vectors(embeddings, texts, metadata_list)
 
         # Keyword indexing - BM25
-        self.bm25_retriever.index_documents(texts)
+        self.bm25_retriever.index_documents_from_chunks(chunks)
 
     def _rrf_fusion(
         self,
