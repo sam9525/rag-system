@@ -140,3 +140,23 @@ class TestHybridRetriever:
         # Should return results
         assert len(results) >= 1
         assert results[0].text.startswith("Physics")
+
+    def test_auto_infer_dimension_from_manager(self):
+        """Test that HybridRetriever infers dimension from injected manager."""
+        class MockEmbeddingManager:
+            dimension = 128
+            model_name = "mock"
+            def embed_text(self, text):
+                import numpy as np
+                return np.zeros(128)
+            def embed_batch(self, texts, show_progress=False):
+                import numpy as np
+                return np.zeros((len(texts), 128))
+
+        mock_emb = MockEmbeddingManager()
+        # Should NOT need embedding_dim parameter when manager is provided
+        retriever = HybridRetriever(embedding_manager=mock_emb)
+
+        # Vector store should have the right dimension
+        assert retriever.vector_store.dimension == 128
+        assert retriever._embedding_dim == 128

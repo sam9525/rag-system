@@ -31,12 +31,14 @@ class HybridRetriever:
             config_override: Optional config replacement.
         """
         self.config = config_override or config.retrieval
-        self._embedding_dim = embedding_dim or config.embedding.dimension
 
         if embedding_manager is not None:
             self.embedding_manager = embedding_manager
+            self._embedding_dim = embedding_manager.dimension
         else:
             self.embedding_manager = EmbeddingManager()
+            self._embedding_dim = embedding_dim or config.embedding.dimension
+
         self.vector_store = VectorStore(self._embedding_dim)
         self.bm25_retriever = BM25RetrieverWrapper()
 
