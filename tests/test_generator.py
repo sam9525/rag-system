@@ -10,11 +10,11 @@ class TestOllamaGenerator:
     def test_init_sets_config(self):
         """Test initialization sets configuration."""
         generator = OllamaGenerator()
-        assert generator.config.model == "gemma4"
+        assert generator.config.model == "gemma4:e4b"
         assert generator.config.base_url == "http://localhost:11434"
 
     def test_build_prompt_format(self):
-        """Test prompt building with context."""
+        """Test prompt building with numbered context."""
         generator = OllamaGenerator()
 
         chunks = [
@@ -26,7 +26,10 @@ class TestOllamaGenerator:
 
         assert "Test question?" in prompt
         assert "First chunk" in prompt
-        assert "[Source: doc1.pdf, Page 1]" in prompt
+        # Should use numbered format [1], [2] not verbose format
+        assert "[1]" in prompt
+        assert "[2]" in prompt
+        assert "Chunk 1" in prompt
 
     def test_generate_requires_ollama_running(self):
         """Test generate fails gracefully if Ollama not running."""
