@@ -64,11 +64,12 @@ def render_chat_history():
             st.markdown(message["content"])
 
 
-def render_sources(sources):
-    """Render source documents."""
+def render_sources(sources, show_citations=True):
+    """Render source documents with numbered citations."""
     with st.expander("📄 View Source Chunks"):
         for i, source in enumerate(sources, 1):
-            st.markdown(f"**Chunk {i}** (Score: {source['score']:.3f})")
+            citation = f"[{i}]" if show_citations else f"Chunk {i}"
+            st.markdown(f"**{citation}** (Score: {source['score']:.3f})")
             st.markdown(f"- **Source:** {source['source']}")
             st.markdown(f"- **Page:** {source['page']}")
             if source.get('section'):
@@ -122,6 +123,10 @@ def main():
                     st.markdown(f"**Answer:**\n{result.answer}")
 
                     if result.sources:
+                        st.markdown("**Sources:**")
+                        for i, source in enumerate(result.sources, 1):
+                            st.markdown(f"- **[{i}]** {source['source']}, Page {source['page']}")
+
                         render_sources(result.sources)
 
                     st.session_state.messages.append({
@@ -130,7 +135,19 @@ def main():
                     })
 
                 except Exception as e:
-                    st.error(f"Error generating response: {e}")
+                    st.error(f"Error: {e}")
+                    st.info("Showing top retrieved chunks while we resolve the issue...")
+
+                    # Show sources even when generation fails
+                    try:
+                        retrieved = st.session_state.rag_system.retriever.retrieve(prompt, top_k=5)
+                        if retrieved:
+                            st.markdown("**Retrieved Chunks:**")
+                            for i, chunk in enumerate(retrieved, 1):
+                                st.markdown(f"- **[{i}]** {chunk['source']}, Page {chunk['page']}")
+                            render_sources(retrieved, show_citations=True)
+                    except Exception:
+                        pass  # Best effort - sources may not be available
 
 
 if __name__ == "__main__":
