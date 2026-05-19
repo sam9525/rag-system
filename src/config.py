@@ -1,6 +1,6 @@
 """Configuration settings for RAG system."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -45,6 +45,16 @@ class ChunkingConfig:
 
 
 @dataclass
+class EvalLLMConfig:
+    """Configuration for the LLM used in RAGAS evaluation."""
+
+    provider: str = "ollama"  # "ollama" or "openai"
+    model: str = "gemma4:e4b"  # Model for evaluation
+    base_url: str = "http://localhost:11434/v1"  # Ollama OpenAI-compatible endpoint
+    api_key: str = "ollama"  # Dummy for Ollama
+
+
+@dataclass
 class RAGConfig:
     """Main RAG configuration."""
 
@@ -52,6 +62,7 @@ class RAGConfig:
     retrieval: RetrievalConfig = None
     generation: GenerationConfig = None
     chunking: ChunkingConfig = None
+    eval_llm: EvalLLMConfig = field(default_factory=EvalLLMConfig)
 
     def __post_init__(self):
         if self.embedding is None:
@@ -62,6 +73,8 @@ class RAGConfig:
             self.generation = GenerationConfig()
         if self.chunking is None:
             self.chunking = ChunkingConfig()
+        if self.eval_llm is None:
+            self.eval_llm = EvalLLMConfig()
 
 
 # Global config instance
