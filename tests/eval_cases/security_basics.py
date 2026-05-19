@@ -46,4 +46,30 @@ CASES = [
         expected_topics=["red team", "adversarial", "testing", "vulnerabilities"],
         source_hint="AI Red Teaming Guide"
     ),
+    # --- Model Misuse & Supply Chain ---
+    EvalCase(
+        question="What are the risks of model misuse in AI applications?",
+        ground_truth="Model misuse occurs when AI systems are exploited for unintended or harmful purposes, such as generating disinformation, automating attacks, bypassing security controls, or circumventing ethical safeguards designed into the model.",
+        expected_topics=["misuse", "disinformation", "attacks", "safeguards"],
+        source_hint="OWASP Top 10 for LLM"
+    ),
+    EvalCase(
+        question="What is the AI model supply chain and its security implications?",
+        ground_truth="The AI model supply chain includes model weights, training data, preprocessing pipelines, and third-party components. Security risks include poisoned training data, compromised model weights, unauthorized model modifications, and reliance on unverified third-party models.",
+        expected_topics=["supply chain", "training data", "model weights", "third-party"],
+        source_hint="AI Security"
+    ),
+    # --- Hallucination & Context Poisoning ---
+    EvalCase(
+        question="What is hallucination in LLM outputs and why is it a security concern?",
+        ground_truth="Hallucination in LLMs refers to the model generating confident but incorrect, fabricated, or misleading information. In security contexts, this is dangerous because users may trust and act on false information, leading to security misconfigurations, incorrect vulnerability assessments, or compliance violations.",
+        expected_topics=["hallucination", "confident", "incorrect", "misleading"],
+        source_hint="OWASP Top 10 for LLM"
+    ),
+    EvalCase(
+        question="What is context poisoning in agentic AI systems?",
+        ground_truth="Context poisoning occurs when an attacker manipulates the input context of an AI agent to influence its behavior, memory, or decisions. This can happen through malicious inputs stored in memory, manipulated conversation history, or crafted prompts that gradually shift the agent's goals or bypass safety measures.",
+        expected_topics=["context", "poisoning", "memory", "manipulation"],
+        source_hint="Securing Agentic Applications Guide"
+    ),
 ]
