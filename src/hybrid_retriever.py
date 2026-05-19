@@ -186,24 +186,38 @@ class HybridRetriever:
         """Load chunks from external source (e.g., chunks.json)."""
         self.chunks = chunks
 
-    def save(self, vector_path: str, bm25_path: str):
-        """Save both vector and BM25 indexes to disk.
+    def save(self, vector_path: str, bm25_path: str, chunks_path: str = None):
+        """Save vector index, BM25 index, and chunks to disk.
 
         Args:
             vector_path: Path to save FAISS index
             bm25_path: Path to save BM25 index
+            chunks_path: Path to save chunks (defaults to vector_path.replace('.index', '.chunks.json'))
         """
+        import json
         self.vector_store.save(vector_path)
         self.bm25_retriever.save(bm25_path)
+        if chunks_path is None:
+            chunks_path = vector_path.replace('.index', '.chunks.json')
+        with open(chunks_path, 'w', encoding='utf-8') as f:
+            json.dump(self.chunks, f, ensure_ascii=False)
+        print(f"Saved {len(self.chunks)} chunks to {chunks_path}")
 
-    def load(self, vector_path: str, bm25_path: str):
-        """Load both vector and BM25 indexes from disk.
+    def load(self, vector_path: str, bm25_path: str, chunks_path: str = None):
+        """Load vector index, BM25 index, and chunks from disk.
 
         Args:
             vector_path: Path to FAISS index
             bm25_path: Path to BM25 index
+            chunks_path: Path to chunks (defaults to vector_path.replace('.index', '.chunks.json'))
         """
+        import json
         print(f"Loading vector index from {vector_path}...")
         self.vector_store.load(vector_path)
         print(f"Loading BM25 index from {bm25_path}...")
         self.bm25_retriever.load(bm25_path)
+        if chunks_path is None:
+            chunks_path = vector_path.replace('.index', '.chunks.json')
+        with open(chunks_path, 'r', encoding='utf-8') as f:
+            self.chunks = json.load(f)
+        print(f"Loaded {len(self.chunks)} chunks from {chunks_path}")

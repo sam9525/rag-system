@@ -86,22 +86,12 @@ class RAGSystem:
             manifest = self.index_manager.load_manifest()
             print(f"Loading cached index for {len(manifest.files)} files...")
 
-            # Load chunks.json (single source of truth)
+            # Load cached index
             chunks_path = self.index_dir / "chunks.json"
-            if chunks_path.exists():
-                with open(chunks_path, "r", encoding="utf-8") as f:
-                    chunks = json.load(f)
-                self.retriever.load_chunks(chunks)
-
-            # Load FAISS index
-            index_path = self.index_dir / "vectors.faiss"
-            if index_path.exists():
-                self.retriever.vector_store.load(str(index_path))
-
-            # Load BM25 index
+            vector_path = self.index_dir / "vectors.faiss"
             bm25_path = self.index_dir / "bm25.json"
-            if bm25_path.exists():
-                self.retriever.bm25_retriever.load(str(bm25_path))
+            if vector_path.exists() and bm25_path.exists() and chunks_path.exists():
+                self.retriever.load(str(vector_path), str(bm25_path), str(chunks_path))
 
             self._indexed = True
             total_chunks = sum(f["chunk_count"] for f in manifest.files.values())
@@ -150,14 +140,11 @@ class RAGSystem:
         # Index chunks (stores in retriever's chunks list)
         self.retriever.index_documents(all_chunks)
 
-        # Save chunks.json (single source of truth)
-        chunks_path = self.index_dir / "chunks.json"
-        with open(chunks_path, "w", encoding="utf-8") as f:
-            json.dump(all_chunks, f, ensure_ascii=False)
-
-        # Save indexes
-        self.retriever.vector_store.save(str(self.index_dir / "vectors.faiss"))
-        self.retriever.bm25_retriever.save(str(self.index_dir / "bm25.json"))
+        # Save all indexes and chunks
+        self.retriever.save(
+            str(self.index_dir / "vectors.faiss"),
+            str(self.index_dir / "bm25.json")
+        )
 
         # Save manifest
         manifest = IndexManifest(index_dir=self.index_dir)
