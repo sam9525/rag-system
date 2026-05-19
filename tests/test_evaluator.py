@@ -1,4 +1,4 @@
-"""Tests for evaluator module."""
+"""Tests for evaluator module using RAGAS."""
 
 import pytest
 from unittest.mock import MagicMock
@@ -43,25 +43,62 @@ def test_run_case_returns_result(mock_rag):
     assert result.answer_relevancy >= 0
 
 
-def test_run_eval_loads_cases_from_file(mock_rag, tmp_path):
-    """Test run_eval loads cases from Python file."""
-    # Create test case file
-    case_file = tmp_path / "test_cases.py"
-    case_file.write_text('''
-from src.test_case import EvalCase
-
-CASES = [
-    EvalCase(
-        question="Test?",
-        ground_truth="Test answer",
-        expected_topics=["test"],
-        source_hint="test.pdf"
-    )
-]
-''')
+def test_run_batch_processes_cases(mock_rag):
+    """Test run_batch evaluates multiple cases."""
+    cases = [
+        EvalCase(
+            question="Test 1?",
+            ground_truth="Answer 1",
+            expected_topics=["test1"],
+            source_hint="test.pdf"
+        ),
+        EvalCase(
+            question="Test 2?",
+            ground_truth="Answer 2",
+            expected_topics=["test2"],
+            source_hint="test.pdf"
+        ),
+    ]
 
     evaluator = Evaluator(mock_rag)
-    results = evaluator.run_eval(str(case_file))
+    results = evaluator.run_batch(cases)
+
+    assert len(results) == 2
+    assert results[0].question == "Test 1?"
+    assert results[1].question == "Test 2?"
+
+
+def test_run_eval_is_alias_for_run_batch(mock_rag):
+    """Test run_eval is an alias for run_batch."""
+    cases = [
+        EvalCase(
+            question="Test?",
+            ground_truth="Answer",
+            expected_topics=["test"],
+            source_hint="test.pdf"
+        )
+    ]
+
+    evaluator = Evaluator(mock_rag)
+    results = evaluator.run_eval(cases)
 
     assert len(results) == 1
     assert results[0].question == "Test?"
+
+
+def test_print_results_formats_table(mock_rag):
+    """Test print_results outputs formatted table."""
+    cases = [
+        EvalCase(
+            question="Test question?",
+            ground_truth="Test answer",
+            expected_topics=["test"],
+            source_hint="test.pdf"
+        )
+    ]
+
+    evaluator = Evaluator(mock_rag)
+    results = evaluator.run_case(cases[0])
+
+    # Should not raise
+    evaluator.print_results([results])
