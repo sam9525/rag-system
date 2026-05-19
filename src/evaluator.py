@@ -32,7 +32,7 @@ class EvalResult:
     context_recall: float = 0.0
 
 
-class Evaluator:
+class RAGASEvaluator:
     """Evaluates RAG system responses using RAGAS with LLM-based metrics.
 
     This evaluator uses the ragas library to compute LLM-evaluated metrics

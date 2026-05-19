@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import MagicMock
-from src.evaluator import Evaluator, EvalResult
+from src.evaluator import RAGASEvaluator, EvalResult
 from src.test_case import EvalCase
 
 
@@ -19,8 +19,8 @@ def mock_rag():
 
 
 def test_evaluator_init(mock_rag):
-    """Test Evaluator initializes with RAG system."""
-    evaluator = Evaluator(mock_rag)
+    """Test RAGASEvaluator initializes with RAG system."""
+    evaluator = RAGASEvaluator(mock_rag)
     assert evaluator.rag == mock_rag
     assert evaluator.metrics == ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
 
@@ -33,7 +33,7 @@ def test_run_case_returns_result(mock_rag):
         expected_topics=["X"],
         source_hint="doc.pdf"
     )
-    evaluator = Evaluator(mock_rag)
+    evaluator = RAGASEvaluator(mock_rag)
     result = evaluator.run_case(case)
 
     assert isinstance(result, EvalResult)
@@ -60,7 +60,7 @@ def test_run_batch_processes_cases(mock_rag):
         ),
     ]
 
-    evaluator = Evaluator(mock_rag)
+    evaluator = RAGASEvaluator(mock_rag)
     results = evaluator.run_batch(cases)
 
     assert len(results) == 2
@@ -79,7 +79,7 @@ def test_run_eval_is_alias_for_run_batch(mock_rag):
         )
     ]
 
-    evaluator = Evaluator(mock_rag)
+    evaluator = RAGASEvaluator(mock_rag)
     results = evaluator.run_eval(cases)
 
     assert len(results) == 1
@@ -97,7 +97,7 @@ def test_print_results_formats_table(mock_rag):
         )
     ]
 
-    evaluator = Evaluator(mock_rag)
+    evaluator = RAGASEvaluator(mock_rag)
     results = evaluator.run_case(cases[0])
 
     # Should not raise
