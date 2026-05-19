@@ -203,5 +203,7 @@ class HybridRetriever:
             vector_path: Path to FAISS index
             bm25_path: Path to BM25 index
         """
+        print(f"Loading vector index from {vector_path}...")
         self.vector_store.load(vector_path)
+        print(f"Loading BM25 index from {bm25_path}...")
         self.bm25_retriever.load(bm25_path)
