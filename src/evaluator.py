@@ -6,6 +6,16 @@ from typing import List
 from src.test_case import EvalCase
 from src.config import config
 
+from ragas.llms import llm_factory
+from ragas.metrics.collections import (
+    Faithfulness,
+    AnswerRelevancy,
+    ContextPrecision,
+    ContextRecall,
+)
+from ragas.embeddings import OpenAIEmbeddings
+from openai import OpenAI
+
 
 @dataclass
 class EvalResult:
@@ -46,44 +56,38 @@ class RAGASEvaluator:
             rag_system: RAGSystem instance to evaluate.
         """
         self.rag = rag_system
-        self.metrics = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
+        self.metrics = [
+            "faithfulness",
+            "answer_relevancy",
+            "context_precision",
+            "context_recall",
+        ]
         self._llm = None
         self._faithfulness = None
         self._answer_relevancy = None
         self._context_precision = None
         self._context_recall = None
 
-        # Try to import and initialize ragas components
-        try:
-            from ragas.llms import llm_factory
-            from ragas.metrics.collections import Faithfulness, AnswerRelevancy, ContextPrecision, ContextRecall
-            from ragas.embeddings import OpenAIEmbeddings
-            from openai import OpenAI
+        # Initialize OpenAI client for Ollama (OpenAI-compatible API)
+        self._client = OpenAI(
+            api_key=config.eval_llm.api_key, base_url=config.eval_llm.base_url
+        )
 
-            # Initialize OpenAI client for Ollama (OpenAI-compatible API)
-            self._client = OpenAI(
-                api_key=config.eval_llm.api_key,
-                base_url=config.eval_llm.base_url
-            )
+        # Initialize embeddings for metrics that need them
+        self._embeddings = OpenAIEmbeddings(client=self._client)
 
-            # Initialize embeddings for metrics that need them
-            self._embeddings = OpenAIEmbeddings(client=self._client)
+        # Initialize LLM wrapper for RAGAS using Ollama
+        self._llm = llm_factory(
+            config.eval_llm.model, provider="openai", client=self._client
+        )
 
-            # Initialize LLM wrapper for RAGAS using Ollama
-            self._llm = llm_factory(
-                config.eval_llm.model,
-                provider="openai",
-                client=self._client
-            )
-
-            # Initialize metrics with the LLM
-            self._faithfulness = Faithfulness(llm=self._llm)
-            self._answer_relevancy = AnswerRelevancy(llm=self._llm, embeddings=self._embeddings)
-            self._context_precision = ContextPrecision(llm=self._llm)
-            self._context_recall = ContextRecall(llm=self._llm)
-        except ImportError as e:
-            import warnings
-            warnings.warn(f"RAGAS library not available: {e}. LLM-based evaluation disabled.")
+        # Initialize metrics with the LLM
+        self._faithfulness = Faithfulness(llm=self._llm)
+        self._answer_relevancy = AnswerRelevancy(
+            llm=self._llm, embeddings=self._embeddings
+        )
+        self._context_precision = ContextPrecision(llm=self._llm)
+        self._context_recall = ContextRecall(llm=self._llm)
 
     def run_case(self, case: EvalCase, verbose: bool = False) -> EvalResult:
         """Run RAGAS evaluation on a single test case.
@@ -110,24 +114,30 @@ class RAGASEvaluator:
             print(f"Answer: {answer}")
 
         # Create RAGAS dataset for this single case
-        eval_data = [{
-            "user_input": case.question,
-            "retrieved_contexts": contexts,
-            "response": answer,
-            "reference": case.ground_truth,
-        }]
+        eval_data = [
+            {
+                "user_input": case.question,
+                "retrieved_contexts": contexts,
+                "response": answer,
+                "reference": case.ground_truth,
+            }
+        ]
 
         # Run RAGAS evaluation
         if self._llm is not None:
             try:
                 from ragas import EvaluationDataset, evaluate
+
                 dataset = EvaluationDataset.from_list(eval_data)
-                eval_result = evaluate(dataset, metrics=[
-                    self._faithfulness,
-                    self._answer_relevancy,
-                    self._context_precision,
-                    self._context_recall,
-                ])
+                eval_result = evaluate(
+                    dataset,
+                    metrics=[
+                        self._faithfulness,
+                        self._answer_relevancy,
+                        self._context_precision,
+                        self._context_recall,
+                    ],
+                )
 
                 # Extract scores from results
                 scores = eval_result.scores[0]
@@ -137,10 +147,15 @@ class RAGASEvaluator:
                 context_recall = float(scores.get("context_recall", 0.0))
 
                 if verbose:
-                    print(f"Faithfulness: {faithfulness:.2f}, Answer Relevancy: {answer_relevancy:.2f}")
-                    print(f"Context Precision: {context_precision:.2f}, Context Recall: {context_recall:.2f}")
+                    print(
+                        f"Faithfulness: {faithfulness:.2f}, Answer Relevancy: {answer_relevancy:.2f}"
+                    )
+                    print(
+                        f"Context Precision: {context_precision:.2f}, Context Recall: {context_recall:.2f}"
+                    )
             except Exception as e:
                 import warnings
+
                 warnings.warn(f"RAGAS evaluation failed: {e}. Using fallback scores.")
                 faithfulness = 0.0
                 answer_relevancy = 0.0
@@ -161,10 +176,12 @@ class RAGASEvaluator:
             faithfulness=faithfulness,
             answer_relevancy=answer_relevancy,
             context_precision=context_precision,
-            context_recall=context_recall
+            context_recall=context_recall,
         )
 
-    def run_batch(self, cases: List[EvalCase], verbose: bool = False) -> List[EvalResult]:
+    def run_batch(
+        self, cases: List[EvalCase], verbose: bool = False
+    ) -> List[EvalResult]:
         """Run RAGAS evaluation on multiple test cases.
 
         Args:
@@ -180,7 +197,9 @@ class RAGASEvaluator:
             results.append(result)
         return results
 
-    def run_eval(self, cases: List[EvalCase], verbose: bool = False) -> List[EvalResult]:
+    def run_eval(
+        self, cases: List[EvalCase], verbose: bool = False
+    ) -> List[EvalResult]:
         """Run evaluation on test cases (alias for run_batch).
 
         Args:
@@ -208,14 +227,22 @@ class RAGASEvaluator:
 
         for r in results:
             q = r.question[:37] + "..." if len(r.question) > 40 else r.question
-            print(f"{q:<40} {r.faithfulness:.2f}    {r.answer_relevancy:.2f}    {r.context_precision:.2f}    {r.context_recall:.2f}")
+            print(
+                f"{q:<40} {r.faithfulness:.2f}    {r.answer_relevancy:.2f}    {r.context_precision:.2f}    {r.context_recall:.2f}"
+            )
 
         # Summary
         avg_f = sum(r.faithfulness for r in results) / len(results) if results else 0
-        avg_r = sum(r.answer_relevancy for r in results) / len(results) if results else 0
-        avg_p = sum(r.context_precision for r in results) / len(results) if results else 0
+        avg_r = (
+            sum(r.answer_relevancy for r in results) / len(results) if results else 0
+        )
+        avg_p = (
+            sum(r.context_precision for r in results) / len(results) if results else 0
+        )
         avg_c = sum(r.context_recall for r in results) / len(results) if results else 0
 
         print("-" * 80)
-        print(f"{'AVERAGE':<40} {avg_f:.2f}    {avg_r:.2f}    {avg_p:.2f}    {avg_c:.2f}")
+        print(
+            f"{'AVERAGE':<40} {avg_f:.2f}    {avg_r:.2f}    {avg_p:.2f}    {avg_c:.2f}"
+        )
         print("=" * 80)
