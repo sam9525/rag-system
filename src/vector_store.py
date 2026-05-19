@@ -1,22 +1,16 @@
 """FAISS vector store for semantic search."""
 
-from dataclasses import dataclass
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 import numpy as np
 
 import faiss
 
 
-@dataclass
-class SearchResult:
-    """Represents a search result."""
-    text: str
-    score: float
-    metadata: dict
-
-
 class VectorStore:
-    """FAISS-based vector store for semantic search."""
+    """FAISS-based vector store for semantic search.
+
+    Stores ONLY embeddings. Text and metadata come from chunks.json.
+    """
 
     def __init__(self, dimension: int, index=None, normalizer=None):
         """Initialize vector store.
@@ -29,8 +23,6 @@ class VectorStore:
         self.dimension = dimension
         self.index = index or faiss.IndexFlatIP(dimension)
         self.normalizer = normalizer or self._l2_normalize
-        self.texts: List[str] = []
-        self.metadata_list: List[dict] = []
 
     def _l2_normalize(self, vectors: np.ndarray) -> np.ndarray:
         """L2 normalize vectors for cosine similarity."""
@@ -39,26 +31,24 @@ class VectorStore:
         vectors = vectors / norms
         return vectors
 
-    def add_vectors(self, vectors: np.ndarray, texts: List[str], metadata_list: Optional[List[dict]] = None):
-        """Add vectors to the index."""
-        if len(vectors) != len(texts):
-            raise ValueError("Vectors and texts must have same length")
+    def add_vectors(self, embeddings: np.ndarray):
+        """Add vectors to the index.
 
-        if vectors.shape[1] != self.dimension:
-            raise ValueError(f"Vector dimension {vectors.shape[1]} != expected {self.dimension}")
+        Args:
+            embeddings: Numpy array of shape (n, dimension)
+        """
+        if embeddings.shape[1] != self.dimension:
+            raise ValueError(f"Vector dimension {embeddings.shape[1]} != expected {self.dimension}")
 
-        vectors = self.normalizer(vectors)
+        embeddings = self.normalizer(embeddings)
+        self.index.add(embeddings)
 
-        self.index.add(vectors)
-        self.texts.extend(texts)
+    def search(self, query_vector: np.ndarray, top_k: int = 10) -> List[Tuple[int, float]]:
+        """Search for top k similar vectors.
 
-        if metadata_list:
-            self.metadata_list.extend(metadata_list)
-        else:
-            self.metadata_list.extend([{} for _ in texts])
-
-    def search(self, query_vector: np.ndarray, top_k: int = 10) -> List[Tuple[str, float, dict]]:
-        """Search for top k similar vectors."""
+        Returns:
+            List of (chunk_index, distance) tuples - indices only, no text/metadata
+        """
         query_vector = query_vector.astype('float32')
 
         if len(query_vector.shape) == 1:
@@ -71,23 +61,18 @@ class VectorStore:
 
         distances, indices = self.index.search(query_vector, min(top_k, self.count()))
 
-        results = []
-        for dist, idx in zip(distances[0], indices[0]):
-            if idx < len(self.texts):
-                results.append((self.texts[idx], float(dist), self.metadata_list[idx]))
-
-        return results
+        return [(int(idx), float(dist)) for dist, idx in zip(distances[0], indices[0]) if idx >= 0]
 
     def count(self) -> int:
         """Get number of vectors in index."""
         return self.index.ntotal
 
     def save(self, path: str):
-        """Save index to disk."""
+        """Save FAISS index to disk."""
         faiss.write_index(self.index, path)
 
     def load(self, path: str):
-        """Load index from disk."""
+        """Load FAISS index from disk."""
         self.index = faiss.read_index(path)
         loaded_dim = self.index.d
         if loaded_dim != self.dimension:
@@ -97,7 +82,4 @@ class VectorStore:
 
     def clear(self):
         """Clear all vectors from the store."""
-        self.dimension = self.dimension
         self.index = faiss.IndexFlatIP(self.dimension)
-        self.texts = []
-        self.metadata_list = []

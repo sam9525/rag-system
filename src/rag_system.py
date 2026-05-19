@@ -1,7 +1,8 @@
 """Main RAG system orchestrator."""
 
+import json
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from pathlib import Path
 
 from src.config import config
@@ -22,7 +23,10 @@ class RAGQueryResult:
 
 
 class RAGSystem:
-    """Main RAG system orchestrating retrieval and generation."""
+    """Main RAG system orchestrating retrieval and generation.
+
+    Uses chunks.json as single source of truth for all chunk text and metadata.
+    """
 
     def __init__(self, source_dir: Optional[Path] = None, index_dir: Optional[Path] = None):
         """Initialize RAG system with all components."""
@@ -81,10 +85,24 @@ class RAGSystem:
         if not force_rebuild and self.index_manager.is_index_valid(source_dir):
             manifest = self.index_manager.load_manifest()
             print(f"Loading cached index for {len(manifest.files)} files...")
-            # Load the FAISS index
+
+            # Load chunks.json (single source of truth)
+            chunks_path = self.index_dir / "chunks.json"
+            if chunks_path.exists():
+                with open(chunks_path, "r", encoding="utf-8") as f:
+                    chunks = json.load(f)
+                self.retriever.load_chunks(chunks)
+
+            # Load FAISS index
             index_path = self.index_dir / "vectors.faiss"
             if index_path.exists():
                 self.retriever.vector_store.load(str(index_path))
+
+            # Load BM25 index
+            bm25_path = self.index_dir / "bm25.json"
+            if bm25_path.exists():
+                self.retriever.bm25_retriever.load(str(bm25_path))
+
             self._indexed = True
             total_chunks = sum(f["chunk_count"] for f in manifest.files.values())
             return {
@@ -129,11 +147,17 @@ class RAGSystem:
                     "metadata": chunk.metadata
                 })
 
-        # Index chunks
+        # Index chunks (stores in retriever's chunks list)
         self.retriever.index_documents(all_chunks)
 
-        # Save index to disk
+        # Save chunks.json (single source of truth)
+        chunks_path = self.index_dir / "chunks.json"
+        with open(chunks_path, "w", encoding="utf-8") as f:
+            json.dump(all_chunks, f, ensure_ascii=False)
+
+        # Save indexes
         self.retriever.vector_store.save(str(self.index_dir / "vectors.faiss"))
+        self.retriever.bm25_retriever.save(str(self.index_dir / "bm25.json"))
 
         # Save manifest
         manifest = IndexManifest(index_dir=self.index_dir)

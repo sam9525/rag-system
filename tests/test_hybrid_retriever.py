@@ -12,22 +12,22 @@ class TestHybridRetriever:
         """Test RRF fusion combines rankings properly."""
         retriever = HybridRetriever(embedding_dim=128)
 
-        # Two sets of rankings
+        # Two sets of rankings - now using (chunk_index, score)
         semantic_results = [
-            ("doc_a", 0.9),
-            ("doc_b", 0.8),
-            ("doc_c", 0.7),
+            (0, 0.9),  # doc_a at index 0
+            (1, 0.8),  # doc_b at index 1
+            (2, 0.7),  # doc_c at index 2
         ]
         keyword_results = [
-            ("doc_b", 1.0),
-            ("doc_c", 0.9),
-            ("doc_a", 0.6),
+            (1, 1.0),  # doc_b at index 1
+            (2, 0.9),  # doc_c at index 2
+            (0, 0.6),  # doc_a at index 0
         ]
 
         fused = retriever._rrf_fusion(semantic_results, keyword_results, k=60)
 
-        # doc_b should be ranked first (top in both)
-        assert fused[0][0] == "doc_b"
+        # doc_b (index 1) should be ranked first (top in both)
+        assert fused[0][0] == 1  # index 1
 
     @pytest.mark.skip(reason="Requires full integration test with real embeddings")
     def test_search_returns_final_top_k(self):
@@ -79,7 +79,6 @@ class TestHybridRetriever:
 
             def embed_text(self, text):
                 import numpy as np
-                # Return deterministic vectors
                 vec = np.zeros(128)
                 if "physics" in text.lower():
                     vec[0] = 1.0
@@ -105,6 +104,7 @@ class TestHybridRetriever:
 
         # "physics" embedding should match physics chunk
         assert results[0].text.startswith("Physics")
+        assert results[0].metadata.get("source") == "p.pdf"
 
     def test_retriever_with_mock_embedding_manager(self):
         """Test HybridRetriever works with mock EmbeddingManager."""
@@ -160,3 +160,19 @@ class TestHybridRetriever:
         # Vector store should have the right dimension
         assert retriever.vector_store.dimension == 128
         assert retriever._embedding_dim == 128
+
+    def test_load_chunks_from_external_source(self):
+        """Test loading chunks from external source (e.g., chunks.json)."""
+        retriever = HybridRetriever(embedding_dim=128)
+
+        chunks = [
+            {"text": "First chunk", "metadata": {"source": "doc.pdf", "page": 1}},
+            {"text": "Second chunk", "metadata": {"source": "doc.pdf", "page": 2}},
+        ]
+
+        # Load chunks directly
+        retriever.load_chunks(chunks)
+
+        assert retriever.count() == 2
+        # Chunks should be available for search results
+        # (note: vector_store is empty, so search won't work without indexing)

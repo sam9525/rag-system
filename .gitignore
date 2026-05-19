@@ -1,0 +1,7 @@
+docs/
+.pytest_cache
+__pycache__
+.claude
+sources/
+.rag_index
+rag_standalone.ipynb

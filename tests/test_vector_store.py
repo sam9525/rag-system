@@ -17,18 +17,20 @@ class TestVectorStore:
         """Test adding vectors increases count."""
         store = VectorStore(dimension=128)
         vectors = np.random.randn(5, 128).astype('float32')
-        store.add_vectors(vectors, ["doc1", "doc2", "doc3", "doc4", "doc5"])
+        store.add_vectors(vectors)
         assert store.count() == 5
 
     def test_search_returns_top_k(self):
-        """Test search returns top k results."""
+        """Test search returns top k results with chunk indices."""
         store = VectorStore(dimension=128)
         vectors = np.random.randn(10, 128).astype('float32')
-        store.add_vectors(vectors, [f"doc_{i}" for i in range(10)])
+        store.add_vectors(vectors)
 
         query = np.random.randn(128).astype('float32')
         results = store.search(query, top_k=3)
         assert len(results) == 3
+        # Results are (chunk_index, distance)
+        assert all(isinstance(idx, int) for idx, _ in results)
 
     def test_inject_custom_index(self):
         """Test VectorStore accepts injected index."""
@@ -51,3 +53,24 @@ class TestVectorStore:
 
         assert result.dtype == np.float32
         assert result.shape == (2, 128)
+
+    def test_save_and_load_index(self, tmp_path):
+        """Test saving and loading FAISS index."""
+        store = VectorStore(dimension=128)
+        vectors = np.random.randn(5, 128).astype('float32')
+        store.add_vectors(vectors)
+
+        # Save
+        save_path = tmp_path / "vectors.faiss"
+        store.save(str(save_path))
+
+        # Load into new store
+        new_store = VectorStore(dimension=128)
+        new_store.load(str(save_path))
+
+        assert new_store.count() == 5
+
+        # Verify search works after load
+        query = np.random.randn(128).astype('float32')
+        results = new_store.search(query, top_k=3)
+        assert len(results) == 3
