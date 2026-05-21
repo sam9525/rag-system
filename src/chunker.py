@@ -3,6 +3,9 @@
 import re
 from typing import List, Dict, Optional
 
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+
 from src.chunk import Chunk
 from src.config import config
 from src.heading_detector import RegexHeadingDetector, HeadingDetector
@@ -148,6 +151,59 @@ class SemanticChunker:
                     metadata={
                         **base_metadata,
                         "section": chunk.get("heading", ""),
+                        "chunk_id": idx,
+                    },
+                    chunk_id=idx,
+                )
+            )
+
+        return result
+
+
+class LangChainChunker:
+    """Adapter wrapping langchain RecursiveTextSplitter to produce Chunk objects."""
+
+    def __init__(
+        self,
+        chunk_config=None,
+        heading_detector=None,  # Kept for API compatibility, not used
+    ):
+        """Initialize with optional config.
+
+        Args:
+            chunk_config: Configuration for chunking behavior.
+            heading_detector: Not used (kept for SemanticChunker API compatibility).
+        """
+        self.config = chunk_config or config.chunking
+
+    def create_chunks(self, text: str, base_metadata: Dict) -> List[Chunk]:
+        """Create chunks using langchain RecursiveTextSplitter.
+
+        Args:
+            text: Document text to chunk.
+            base_metadata: Metadata to attach to each chunk.
+
+        Returns:
+            List of Chunk objects.
+        """
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.config.max_chunk_size,
+            chunk_overlap=self.config.overlap_size,
+            separators=self.config.separators,
+            length_function=len,
+        )
+
+        # Convert text to langchain Document for splitting
+        doc = Document(page_content=text)
+        split_docs = splitter.split_documents([doc])
+
+        result = []
+        for idx, split_doc in enumerate(split_docs):
+            result.append(
+                Chunk(
+                    text=split_doc.page_content,
+                    metadata={
+                        **base_metadata,
                         "chunk_id": idx,
                     },
                     chunk_id=idx,

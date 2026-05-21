@@ -119,3 +119,16 @@ def test_chunking_config_has_separators():
         separators=["\n## ", "\n# ", "\n\n", "\n", " "],
     )
     assert config.separators == ["\n## ", "\n# ", "\n\n", "\n", " "]
+
+
+def test_langchain_chunker_basic():
+    """Test that LangChainChunker produces Chunk objects."""
+    from src.chunker import LangChainChunker
+
+    chunker = LangChainChunker()
+    text = "# Header\n\nParagraph content here."
+    chunks = chunker.create_chunks(text, {"source": "test.txt"})
+
+    assert len(chunks) >= 1
+    assert all(hasattr(c, "text") and hasattr(c, "metadata") for c in chunks)
+    assert chunks[0].metadata.get("source") == "test.txt"
