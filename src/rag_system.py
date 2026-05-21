@@ -141,7 +141,9 @@ class RAGSystem:
 
         # Save all indexes and chunks
         self.retriever.save(
-            str(self.index_dir / "vectors.faiss"), str(self.index_dir / "bm25.json")
+            str(self.index_dir / "vectors.faiss"),
+            str(self.index_dir / "bm25.json"),
+            str(self.index_dir / "chunks.json"),
         )
 
         # Save manifest
