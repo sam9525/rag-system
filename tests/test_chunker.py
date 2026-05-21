@@ -1,8 +1,7 @@
 """Tests for chunker using langchain RecursiveCharacterTextSplitter."""
 
 import pytest
-from src.chunker import create_chunks
-from src.chunk import Chunk
+from src.chunker import create_chunks, Chunk
 
 
 class TestCreateChunks:

@@ -1,12 +1,31 @@
 """Chunker using langchain RecursiveCharacterTextSplitter."""
 
-from typing import List, Dict
+from dataclasses import dataclass
+from typing import Dict, Any, List
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
-from src.chunk import Chunk
 from src.config import config
+
+
+@dataclass
+class Chunk:
+    """Represents a document chunk in the RAG pipeline.
+
+    Attributes:
+        text: The chunk content.
+        metadata: Source metadata (source, page, section, etc.).
+        chunk_id: Index of this chunk in the document.
+    """
+
+    text: str
+    metadata: Dict[str, Any]
+    chunk_id: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary format for retriever indexing."""
+        return {"text": self.text, "metadata": self.metadata}
 
 _langchain_splitter_cache = {}
 
