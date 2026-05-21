@@ -57,6 +57,5 @@ class BM25RetrieverWrapper:
         """Load BM25 index from disk."""
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        # Support both old format (with _tokenized_corpus key) and new format (list directly)
-        self._corpus = data if isinstance(data, list) else data.get("_corpus", data.get("_tokenized_corpus", []))
+        self._corpus = data
         self._bm25 = BM25Okapi(self._corpus + [["__dummy__"]])
