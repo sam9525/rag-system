@@ -1,14 +1,12 @@
-"""Semantic chunker that splits by document structure."""
+"""Chunker using langchain RecursiveCharacterTextSplitter."""
 
-import re
-from typing import List, Dict, Optional
+from typing import List, Dict
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
 from src.chunk import Chunk
 from src.config import config
-from src.heading_detector import RegexHeadingDetector, HeadingDetector
 
 _langchain_splitter_cache = {}
 
@@ -30,180 +28,31 @@ def _get_langchain_splitter(chunk_config) -> RecursiveCharacterTextSplitter:
     return _langchain_splitter_cache[cache_key]
 
 
-class SemanticChunker:
-    """Chunks documents by semantic structure (headings, sections)."""
+def create_chunks(text: str, base_metadata: Dict, chunk_config=None) -> List[Chunk]:
+    """Create chunks using langchain RecursiveCharacterTextSplitter.
 
-    def __init__(
-        self, chunk_config=None, heading_detector: Optional[HeadingDetector] = None
-    ):
-        """Initialize with optional custom config and detector.
+    Args:
+        text: Document text to chunk.
+        base_metadata: Metadata to attach to each chunk.
+        chunk_config: Optional configuration override.
 
-        Args:
-            chunk_config: Configuration for chunking behavior.
-            heading_detector: Heading detection strategy. Uses RegexHeadingDetector if None.
-        """
-        self.config = chunk_config or config.chunking
-        self.heading_detector = heading_detector or RegexHeadingDetector()
+    Returns:
+        List of Chunk objects.
+    """
+    cfg = chunk_config or config.chunking
+    splitter = _get_langchain_splitter(cfg)
 
-    def is_heading(self, line: str) -> bool:
-        """Check if a line is a heading."""
-        return self.heading_detector.is_heading(line)
+    doc = Document(page_content=text)
+    split_docs = splitter.split_documents([doc])
 
-    def split_by_headings(self, text: str) -> List[Dict]:
-        """Split text into sections at heading boundaries."""
-        lines = text.split("\n")
-        sections = []
-        current_section = {"heading": "", "content": []}
-
-        for line in lines:
-            if self.is_heading(line):
-                if current_section["content"]:
-                    sections.append(current_section)
-                current_section = {"heading": line.strip(), "content": [line]}
-            else:
-                current_section["content"].append(line)
-
-        if current_section["content"]:
-            sections.append(current_section)
-
-        return sections
-
-    def merge_small_chunks(self, chunks: List[Dict]) -> List[Dict]:
-        """Merge chunks smaller than min_size with next chunk."""
-        min_size = self.config.min_chunk_size
-        merged = []
-        buffer = {"heading": "", "content": []}
-
-        for chunk in chunks:
-            combined = "\n".join(buffer["content"]) + "\n" + "\n".join(chunk["content"])
-
-            if len(combined) >= min_size:
-                merged.append(
-                    {"heading": buffer.get("heading", ""), "content": buffer["content"]}
-                )
-                buffer = {
-                    "heading": chunk.get("heading", ""),
-                    "content": chunk["content"],
-                }
-            else:
-                buffer["content"].extend(chunk["content"])
-                buffer["heading"] = chunk.get("heading", "") or buffer["heading"]
-
-        if buffer["content"]:
-            merged.append(buffer)
-
-        return merged
-
-    def split_large_chunks(self, chunk: Dict) -> List[Dict]:
-        """Split large chunks into smaller pieces at sentence boundaries."""
-        max_size = self.config.max_chunk_size
-        text = "\n".join(chunk["content"])
-
-        if len(text) <= max_size:
-            return [chunk]
-
-        # Split at sentence boundaries
-        sentences = re.split(r"(?<=[.!?])\s+", text)
-        chunks = []
-        current_chunk = []
-        current_size = 0
-
-        for sentence in sentences:
-            if current_size + len(sentence) > max_size and current_chunk:
-                chunks.append(
-                    {
-                        "heading": chunk.get("heading", ""),
-                        "content": [" ".join(current_chunk)],
-                    }
-                )
-                current_chunk = [sentence]
-                current_size = len(sentence)
-            else:
-                current_chunk.append(sentence)
-                current_size += len(sentence)
-
-        if current_chunk:
-            chunks.append(
-                {
-                    "heading": chunk.get("heading", ""),
-                    "content": [" ".join(current_chunk)],
-                }
+    result = []
+    for idx, split_doc in enumerate(split_docs):
+        result.append(
+            Chunk(
+                text=split_doc.page_content,
+                metadata={**base_metadata, "chunk_id": idx},
+                chunk_id=idx,
             )
-
-        return chunks
-
-    def create_chunks(self, text: str, base_metadata: Dict) -> List[Chunk]:
-        """Create chunks - delegates to langchain RecursiveCharacterTextSplitter."""
-        splitter = _get_langchain_splitter(self.config)
-
-        doc = Document(page_content=text)
-        split_docs = splitter.split_documents([doc])
-
-        result = []
-        for idx, split_doc in enumerate(split_docs):
-            result.append(
-                Chunk(
-                    text=split_doc.page_content,
-                    metadata={
-                        **base_metadata,
-                        "section": "",  # Preserve metadata key for compatibility
-                        "chunk_id": idx,
-                    },
-                    chunk_id=idx,
-                )
-            )
-
-        return result
-
-
-class LangChainChunker:
-    """Adapter wrapping langchain RecursiveTextSplitter to produce Chunk objects."""
-
-    def __init__(
-        self,
-        chunk_config=None,
-        heading_detector=None,  # Kept for API compatibility, not used
-    ):
-        """Initialize with optional config.
-
-        Args:
-            chunk_config: Configuration for chunking behavior.
-            heading_detector: Not used (kept for SemanticChunker API compatibility).
-        """
-        self.config = chunk_config or config.chunking
-
-    def create_chunks(self, text: str, base_metadata: Dict) -> List[Chunk]:
-        """Create chunks using langchain RecursiveTextSplitter.
-
-        Args:
-            text: Document text to chunk.
-            base_metadata: Metadata to attach to each chunk.
-
-        Returns:
-            List of Chunk objects.
-        """
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.config.max_chunk_size,
-            chunk_overlap=self.config.overlap_size,
-            separators=self.config.separators,
-            length_function=len,
         )
 
-        # Convert text to langchain Document for splitting
-        doc = Document(page_content=text)
-        split_docs = splitter.split_documents([doc])
-
-        result = []
-        for idx, split_doc in enumerate(split_docs):
-            result.append(
-                Chunk(
-                    text=split_doc.page_content,
-                    metadata={
-                        **base_metadata,
-                        "chunk_id": idx,
-                    },
-                    chunk_id=idx,
-                )
-            )
-
-        return result
+    return result

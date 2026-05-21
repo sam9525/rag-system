@@ -7,7 +7,8 @@ from pathlib import Path
 
 from src.config import config
 from src.document_loader import DocumentLoader
-from src.chunker import SemanticChunker, Chunk
+from src.chunker import create_chunks
+from src.chunk import Chunk
 from src.hybrid_retriever import HybridRetriever, RRFResult
 from src.generator import OllamaGenerator, OllamaConnectionError, OllamaAPIError
 from src.index_manager import IndexManager, IndexManifest
@@ -38,7 +39,6 @@ class RAGSystem:
 
         # Initialize components
         self.document_loader = DocumentLoader(self.source_dir)
-        self.chunker = SemanticChunker()
         self.retriever = HybridRetriever()
         self.generator = OllamaGenerator()
         self.index_manager = IndexManager(self.index_dir)
@@ -132,7 +132,7 @@ class RAGSystem:
         # Chunk documents
         all_chunks = []
         for doc in documents:
-            chunks = self.chunker.create_chunks(doc.page_content, doc.metadata)
+            chunks = create_chunks(doc.page_content, doc.metadata)
             for chunk in chunks:
                 all_chunks.append({"text": chunk.text, "metadata": chunk.metadata})
 
