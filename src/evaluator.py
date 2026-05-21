@@ -220,10 +220,14 @@ class RAGASEvaluator:
         Returns:
             List of EvalResult for each case.
         """
+        print(f"[Evaluator] Starting batch evaluation of {len(cases)} cases...")
         results = []
-        for case in cases:
+        for i, case in enumerate(cases, 1):
+            print(f"[Evaluator] [{i}/{len(cases)}] Processing case...")
             result = self.run_case(case, verbose=verbose)
             results.append(result)
+            print(f"[Evaluator] [{i}/{len(cases)}] Case complete")
+        print(f"[Evaluator] Batch evaluation complete: {len(results)} results")
         return results
 
     def run_eval(
