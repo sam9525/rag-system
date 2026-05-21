@@ -16,6 +16,7 @@ from src.index_manager import IndexManager, IndexManifest
 @dataclass
 class RAGQueryResult:
     """Result from a RAG query."""
+
     answer: str
     sources: List[Dict]
     query: str
@@ -28,7 +29,9 @@ class RAGSystem:
     Uses chunks.json as single source of truth for all chunk text and metadata.
     """
 
-    def __init__(self, source_dir: Optional[Path] = None, index_dir: Optional[Path] = None):
+    def __init__(
+        self, source_dir: Optional[Path] = None, index_dir: Optional[Path] = None
+    ):
         """Initialize RAG system with all components."""
         self.source_dir = source_dir or Path("sources")
         self.index_dir = index_dir or Path(".rag_index")
@@ -45,11 +48,7 @@ class RAGSystem:
     def _transform_chunks_for_generator(self, chunks: List[RRFResult]) -> List[Dict]:
         """Transform RRFResult chunks into format expected by generator."""
         return [
-            {
-                "text": chunk.text,
-                "score": chunk.score,
-                "metadata": chunk.metadata
-            }
+            {"text": chunk.text, "score": chunk.score, "metadata": chunk.metadata}
             for chunk in chunks
         ]
 
@@ -57,16 +56,20 @@ class RAGSystem:
         """Format retrieved chunks into sources list for display."""
         return [
             {
-                "text": chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text,
+                "text": (
+                    chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text
+                ),
                 "source": chunk.metadata.get("source", "unknown"),
                 "page": chunk.metadata.get("page", "?"),
                 "section": chunk.metadata.get("section", ""),
-                "score": chunk.score
+                "score": chunk.score,
             }
             for chunk in chunks
         ]
 
-    def ingest_documents(self, source_dir: Path = None, force_rebuild: bool = False) -> Dict:
+    def ingest_documents(
+        self, source_dir: Path = None, force_rebuild: bool = False
+    ) -> Dict:
         """Ingest and index all documents.
 
         Args:
@@ -100,7 +103,7 @@ class RAGSystem:
                 "chunks_created": total_chunks,
                 "source_dir": str(source_dir),
                 "cached": True,
-                "empty_pages": {}
+                "empty_pages": {},
             }
 
         # Dirty check - show what changed
@@ -122,28 +125,23 @@ class RAGSystem:
         # Warn about empty pages (scanned/image PDFs)
         if empty_pages_by_file:
             for filename, pages in empty_pages_by_file.items():
-                print(f"WARNING: {filename} has {len(pages)} empty page(s) - likely a scanned PDF: pages {pages}")
+                print(
+                    f"WARNING: {filename} has {len(pages)} empty page(s) - likely a scanned PDF: pages {pages}"
+                )
 
         # Chunk documents
         all_chunks = []
         for doc in documents:
-            chunks = self.chunker.create_chunks(
-                doc.page_content,
-                doc.metadata
-            )
+            chunks = self.chunker.create_chunks(doc.page_content, doc.metadata)
             for chunk in chunks:
-                all_chunks.append({
-                    "text": chunk.text,
-                    "metadata": chunk.metadata
-                })
+                all_chunks.append({"text": chunk.text, "metadata": chunk.metadata})
 
         # Index chunks (stores in retriever's chunks list)
         self.retriever.index_documents(all_chunks)
 
         # Save all indexes and chunks
         self.retriever.save(
-            str(self.index_dir / "vectors.faiss"),
-            str(self.index_dir / "bm25.json")
+            str(self.index_dir / "vectors.faiss"), str(self.index_dir / "bm25.json")
         )
 
         # Save manifest
@@ -165,7 +163,7 @@ class RAGSystem:
             "source_dir": str(source_dir),
             "cached": False,
             "empty_pages": empty_pages_by_file,
-            "dirty_files": dirty
+            "dirty_files": dirty,
         }
 
     def query(self, question: str, top_k: int = 3) -> RAGQueryResult:
@@ -179,15 +177,10 @@ class RAGSystem:
             RAGQueryResult with answer and sources
         """
         if not self._indexed:
-            raise ValueError(
-                "No documents indexed. Call ingest_documents() first."
-            )
+            raise ValueError("No documents indexed. Call ingest_documents() first.")
 
         # Retrieve chunks
-        retrieved_chunks = self.retriever.search(
-            question,
-            final_top_k=top_k
-        )
+        retrieved_chunks = self.retriever.search(question, final_top_k=top_k)
 
         # Transform chunks for generator
         chunks_for_gen = self._transform_chunks_for_generator(retrieved_chunks)
@@ -200,14 +193,14 @@ class RAGSystem:
                 answer=f"Connection error: {e}",
                 sources=self._format_sources(retrieved_chunks),
                 query=question,
-                retrieved_chunks=retrieved_chunks
+                retrieved_chunks=retrieved_chunks,
             )
         except OllamaAPIError as e:
             return RAGQueryResult(
                 answer=f"API error: {e}",
                 sources=self._format_sources(retrieved_chunks),
                 query=question,
-                retrieved_chunks=retrieved_chunks
+                retrieved_chunks=retrieved_chunks,
             )
 
         # Format sources for display
@@ -217,7 +210,7 @@ class RAGSystem:
             answer=answer,
             sources=sources,
             query=question,
-            retrieved_chunks=retrieved_chunks
+            retrieved_chunks=retrieved_chunks,
         )
 
     def is_indexed(self) -> bool:
@@ -231,5 +224,5 @@ class RAGSystem:
             "document_count": self.retriever.count(),
             "model": self.generator.config.model,
             "embedding_model": self.retriever.embedding_manager.model_name,
-            "index_dir": str(self.index_dir)
+            "index_dir": str(self.index_dir),
         }

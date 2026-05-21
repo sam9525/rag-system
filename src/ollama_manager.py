@@ -71,14 +71,17 @@ class OllamaManager:
                     "model": model_name,
                     "prompt": "Hello",
                     "stream": False,
-                    "options": {"num_predict": 1}  # Minimal generation to load model
+                    "options": {"num_predict": 1},  # Minimal generation to load model
                 },
-                timeout=timeout
+                timeout=timeout,
             )
             elapsed = time.time() - start_time
             return response.status_code == 200, elapsed
         except requests.exceptions.Timeout:
-            return True, time.time() - start_time  # Timeout likely means model is loading
+            return (
+                True,
+                time.time() - start_time,
+            )  # Timeout likely means model is loading
         except requests.exceptions.RequestException:
             return False, time.time() - start_time
 
@@ -114,7 +117,7 @@ class OllamaManager:
             "available_models": self.get_available_models(),
             "configured_model": self.model,
             "matching_model": self.find_matching_model(self.model),
-            "model_loaded": False
+            "model_loaded": False,
         }
 
         if status["matching_model"]:
@@ -122,8 +125,12 @@ class OllamaManager:
             try:
                 resp = requests.post(
                     f"{self.base_url}/api/generate",
-                    json={"model": status["matching_model"], "prompt": "hi", "options": {"num_predict": 1}},
-                    timeout=10
+                    json={
+                        "model": status["matching_model"],
+                        "prompt": "hi",
+                        "options": {"num_predict": 1},
+                    },
+                    timeout=10,
                 )
                 status["model_loaded"] = resp.status_code == 200
             except Exception:

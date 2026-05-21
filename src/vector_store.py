@@ -26,7 +26,7 @@ class VectorStore:
 
     def _l2_normalize(self, vectors: np.ndarray) -> np.ndarray:
         """L2 normalize vectors for cosine similarity."""
-        vectors = vectors.astype('float32')
+        vectors = vectors.astype("float32")
         norms = np.linalg.norm(vectors, axis=1, keepdims=True)
         vectors = vectors / norms
         return vectors
@@ -38,18 +38,22 @@ class VectorStore:
             embeddings: Numpy array of shape (n, dimension)
         """
         if embeddings.shape[1] != self.dimension:
-            raise ValueError(f"Vector dimension {embeddings.shape[1]} != expected {self.dimension}")
+            raise ValueError(
+                f"Vector dimension {embeddings.shape[1]} != expected {self.dimension}"
+            )
 
         embeddings = self.normalizer(embeddings)
         self.index.add(embeddings)
 
-    def search(self, query_vector: np.ndarray, top_k: int = 10) -> List[Tuple[int, float]]:
+    def search(
+        self, query_vector: np.ndarray, top_k: int = 10
+    ) -> List[Tuple[int, float]]:
         """Search for top k similar vectors.
 
         Returns:
             List of (chunk_index, distance) tuples - indices only, no text/metadata
         """
-        query_vector = query_vector.astype('float32')
+        query_vector = query_vector.astype("float32")
 
         if len(query_vector.shape) == 1:
             query_vector = query_vector.reshape(1, -1)
@@ -61,7 +65,11 @@ class VectorStore:
 
         distances, indices = self.index.search(query_vector, min(top_k, self.count()))
 
-        return [(int(idx), float(dist)) for dist, idx in zip(distances[0], indices[0]) if idx >= 0]
+        return [
+            (int(idx), float(dist))
+            for dist, idx in zip(distances[0], indices[0])
+            if idx >= 0
+        ]
 
     def count(self) -> int:
         """Get number of vectors in index."""

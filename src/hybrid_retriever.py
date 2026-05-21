@@ -12,6 +12,7 @@ from src.config import config
 @dataclass
 class RRFResult:
     """Result from RRF fusion with full chunk data."""
+
     text: str
     score: float
     metadata: dict
@@ -27,7 +28,12 @@ class HybridRetriever:
     embeddings/inverted-index, not text/metadata.
     """
 
-    def __init__(self, embedding_manager: EmbeddingManager = None, embedding_dim: int = None, config_override=None):
+    def __init__(
+        self,
+        embedding_manager: EmbeddingManager = None,
+        embedding_dim: int = None,
+        config_override=None,
+    ):
         """Initialize hybrid retriever.
 
         Args:
@@ -76,7 +82,7 @@ class HybridRetriever:
         self,
         semantic_results: List[Tuple[int, float]],
         keyword_results: List[Tuple[int, float]],
-        k: int = 60
+        k: int = 60,
     ) -> List[Tuple[int, float]]:
         """Apply Reciprocal Rank Fusion.
 
@@ -114,7 +120,7 @@ class HybridRetriever:
         semantic_top_k: int = None,
         keyword_top_k: int = None,
         final_top_k: int = None,
-        top_k: int = None  # Alias for final_top_k
+        top_k: int = None,  # Alias for final_top_k
     ) -> List[RRFResult]:
         """Search using hybrid retrieval and return top chunks.
 
@@ -143,7 +149,9 @@ class HybridRetriever:
 
         # Semantic search - returns (chunk_index, distance)
         query_embedding = self.embedding_manager.embed_text(query)
-        semantic_results = self.vector_store.search(query_embedding, top_k=semantic_top_k)
+        semantic_results = self.vector_store.search(
+            query_embedding, top_k=semantic_top_k
+        )
 
         # Keyword search - returns (chunk_index, score)
         keyword_results = self.bm25_retriever.search(query, top_k=keyword_top_k)
@@ -152,7 +160,7 @@ class HybridRetriever:
         fused_ranking = self._rrf_fusion(
             semantic_results,
             [(r.chunk_index, r.score) for r in keyword_results],
-            k=self.config.rrf_k
+            k=self.config.rrf_k,
         )
 
         # Build lookup for scores
@@ -167,14 +175,16 @@ class HybridRetriever:
                 sem_score = sem_lookup.get(chunk_idx)
                 kw_score = kw_lookup.get(chunk_idx)
 
-                results.append(RRFResult(
-                    text=chunk["text"],
-                    score=rrf_score,
-                    metadata=chunk.get("metadata", {}),
-                    chunk_index=chunk_idx,
-                    semantic_score=sem_score,
-                    keyword_score=kw_score
-                ))
+                results.append(
+                    RRFResult(
+                        text=chunk["text"],
+                        score=rrf_score,
+                        metadata=chunk.get("metadata", {}),
+                        chunk_index=chunk_idx,
+                        semantic_score=sem_score,
+                        keyword_score=kw_score,
+                    )
+                )
 
         return results
 
@@ -195,11 +205,12 @@ class HybridRetriever:
             chunks_path: Path to save chunks (defaults to vector_path.replace('.index', '.chunks.json'))
         """
         import json
+
         self.vector_store.save(vector_path)
         self.bm25_retriever.save(bm25_path)
         if chunks_path is None:
-            chunks_path = vector_path.replace('.index', '.chunks.json')
-        with open(chunks_path, 'w', encoding='utf-8') as f:
+            chunks_path = vector_path.replace(".index", ".chunks.json")
+        with open(chunks_path, "w", encoding="utf-8") as f:
             json.dump(self.chunks, f, ensure_ascii=False)
         print(f"Saved {len(self.chunks)} chunks to {chunks_path}")
 
@@ -212,12 +223,13 @@ class HybridRetriever:
             chunks_path: Path to chunks (defaults to vector_path.replace('.index', '.chunks.json'))
         """
         import json
+
         print(f"Loading vector index from {vector_path}...")
         self.vector_store.load(vector_path)
         print(f"Loading BM25 index from {bm25_path}...")
         self.bm25_retriever.load(bm25_path)
         if chunks_path is None:
-            chunks_path = vector_path.replace('.index', '.chunks.json')
-        with open(chunks_path, 'r', encoding='utf-8') as f:
+            chunks_path = vector_path.replace(".index", ".chunks.json")
+        with open(chunks_path, "r", encoding="utf-8") as f:
             self.chunks = json.load(f)
         print(f"Loaded {len(self.chunks)} chunks from {chunks_path}")

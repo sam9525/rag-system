@@ -50,7 +50,9 @@ class EvalLLMConfig:
 
     provider: str = "openai"  # "openai" for OpenAI-compatible API (Ollama uses this)
     model: str = "gemma4:e4b"  # Model for evaluation
-    base_url: str = "http://localhost:11434/v1"  # Ollama OpenAI-compatible endpoint (include /v1)
+    base_url: str = (
+        "http://localhost:11434/v1"  # Ollama OpenAI-compatible endpoint (include /v1)
+    )
     api_key: str = "ollama"  # Dummy for Ollama
 
 

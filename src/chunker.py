@@ -11,7 +11,9 @@ from src.heading_detector import RegexHeadingDetector, HeadingDetector
 class SemanticChunker:
     """Chunks documents by semantic structure (headings, sections)."""
 
-    def __init__(self, chunk_config=None, heading_detector: Optional[HeadingDetector] = None):
+    def __init__(
+        self, chunk_config=None, heading_detector: Optional[HeadingDetector] = None
+    ):
         """Initialize with optional custom config and detector.
 
         Args:
@@ -27,7 +29,7 @@ class SemanticChunker:
 
     def split_by_headings(self, text: str) -> List[Dict]:
         """Split text into sections at heading boundaries."""
-        lines = text.split('\n')
+        lines = text.split("\n")
         sections = []
         current_section = {"heading": "", "content": []}
 
@@ -35,10 +37,7 @@ class SemanticChunker:
             if self.is_heading(line):
                 if current_section["content"]:
                     sections.append(current_section)
-                current_section = {
-                    "heading": line.strip(),
-                    "content": [line]
-                }
+                current_section = {"heading": line.strip(), "content": [line]}
             else:
                 current_section["content"].append(line)
 
@@ -57,11 +56,13 @@ class SemanticChunker:
             combined = "\n".join(buffer["content"]) + "\n" + "\n".join(chunk["content"])
 
             if len(combined) >= min_size:
-                merged.append({
-                    "heading": buffer.get("heading", ""),
-                    "content": buffer["content"]
-                })
-                buffer = {"heading": chunk.get("heading", ""), "content": chunk["content"]}
+                merged.append(
+                    {"heading": buffer.get("heading", ""), "content": buffer["content"]}
+                )
+                buffer = {
+                    "heading": chunk.get("heading", ""),
+                    "content": chunk["content"],
+                }
             else:
                 buffer["content"].extend(chunk["content"])
                 buffer["heading"] = chunk.get("heading", "") or buffer["heading"]
@@ -80,17 +81,19 @@ class SemanticChunker:
             return [chunk]
 
         # Split at sentence boundaries
-        sentences = re.split(r'(?<=[.!?])\s+', text)
+        sentences = re.split(r"(?<=[.!?])\s+", text)
         chunks = []
         current_chunk = []
         current_size = 0
 
         for sentence in sentences:
             if current_size + len(sentence) > max_size and current_chunk:
-                chunks.append({
-                    "heading": chunk.get("heading", ""),
-                    "content": [" ".join(current_chunk)]
-                })
+                chunks.append(
+                    {
+                        "heading": chunk.get("heading", ""),
+                        "content": [" ".join(current_chunk)],
+                    }
+                )
                 current_chunk = [sentence]
                 current_size = len(sentence)
             else:
@@ -98,10 +101,12 @@ class SemanticChunker:
                 current_size += len(sentence)
 
         if current_chunk:
-            chunks.append({
-                "heading": chunk.get("heading", ""),
-                "content": [" ".join(current_chunk)]
-            })
+            chunks.append(
+                {
+                    "heading": chunk.get("heading", ""),
+                    "content": [" ".join(current_chunk)],
+                }
+            )
 
         return chunks
 
@@ -112,10 +117,9 @@ class SemanticChunker:
         # Build initial chunks
         chunks = []
         for section in sections:
-            chunks.append({
-                "heading": section["heading"],
-                "content": section["content"]
-            })
+            chunks.append(
+                {"heading": section["heading"], "content": section["content"]}
+            )
 
         # Merge small chunks
         chunks = self.merge_small_chunks(chunks)
@@ -135,17 +139,19 @@ class SemanticChunker:
             if idx > 0:
                 prev_content_list = final_chunks[idx - 1]["content"]
                 prev_text = "\n".join(prev_content_list)
-                overlap_text = prev_text[-self.config.overlap_size:]
+                overlap_text = prev_text[-self.config.overlap_size :]
                 text_content = overlap_text + "\n" + text_content
 
-            result.append(Chunk(
-                text=text_content.strip(),
-                metadata={
-                    **base_metadata,
-                    "section": chunk.get("heading", ""),
-                    "chunk_id": idx
-                },
-                chunk_id=idx
-            ))
+            result.append(
+                Chunk(
+                    text=text_content.strip(),
+                    metadata={
+                        **base_metadata,
+                        "section": chunk.get("heading", ""),
+                        "chunk_id": idx,
+                    },
+                    chunk_id=idx,
+                )
+            )
 
         return result

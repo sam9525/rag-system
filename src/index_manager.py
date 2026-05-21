@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 @dataclass
 class IndexManifest:
     """Manifest tracking which files were indexed and their checksums."""
+
     index_dir: Path
     files: Dict[str, Dict] = None
 
@@ -22,7 +23,7 @@ class IndexManifest:
         self.files[filename] = {
             "checksum": checksum,
             "chunk_count": chunk_count,
-            "indexed_at": str(Path(self.index_dir) / f"{filename}.index")
+            "indexed_at": str(Path(self.index_dir) / f"{filename}.index"),
         }
 
     def remove_file(self, filename: str):
@@ -32,10 +33,7 @@ class IndexManifest:
 
     def to_dict(self) -> Dict:
         """Serialize manifest to dict."""
-        return {
-            "index_dir": str(self.index_dir),
-            "files": self.files
-        }
+        return {"index_dir": str(self.index_dir), "files": self.files}
 
     @staticmethod
     def from_dict(data: Dict, index_dir: Path) -> "IndexManifest":
@@ -86,9 +84,7 @@ class IndexManager:
         return hasher.hexdigest()
 
     def detect_dirty_files(
-        self,
-        source_dir: Path,
-        current_files: List[str]
+        self, source_dir: Path, current_files: List[str]
     ) -> Dict[str, List[str]]:
         """Detect which files are new, modified, or deleted since last index.
 
@@ -117,11 +113,7 @@ class IndexManager:
                 if current_checksum != manifest.files[filename]["checksum"]:
                     modified_files.append(filename)
 
-        return {
-            "new": new_files,
-            "modified": modified_files,
-            "deleted": deleted_files
-        }
+        return {"new": new_files, "modified": modified_files, "deleted": deleted_files}
 
     def is_index_valid(self, source_dir: Path) -> bool:
         """Check if the index is valid (exists and matches manifest)."""

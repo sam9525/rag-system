@@ -8,11 +8,13 @@ from src.config import config as global_config
 
 class OllamaConnectionError(Exception):
     """Raised when Ollama server is not reachable (connection refused, timeout)."""
+
     pass
 
 
 class OllamaAPIError(Exception):
     """Raised when Ollama API returns an error (bad model, overloaded, invalid request)."""
+
     pass
 
 
@@ -48,10 +50,7 @@ RESPONSE FORMAT:
     def _check_connection(self) -> bool:
         """Check if Ollama is running and accessible."""
         try:
-            response = requests.get(
-                f"{self.config.base_url}/api/tags",
-                timeout=5
-            )
+            response = requests.get(f"{self.config.base_url}/api/tags", timeout=5)
             return response.status_code == 200
         except requests.exceptions.RequestException:
             return False
@@ -126,9 +125,9 @@ ANSWER:"""
                     "system": self.SYSTEM_PROMPT,
                     "temperature": self.config.temperature,
                     "max_tokens": self.config.max_tokens,
-                    "stream": self.config.stream
+                    "stream": self.config.stream,
                 },
-                timeout=120
+                timeout=120,
             )
 
             if response.status_code != 200:
@@ -138,7 +137,9 @@ ANSWER:"""
             return result.get("response", "")
 
         except requests.exceptions.ConnectionError:
-            raise OllamaConnectionError(f"Cannot connect to Ollama at {self.config.base_url}")
+            raise OllamaConnectionError(
+                f"Cannot connect to Ollama at {self.config.base_url}"
+            )
         except requests.exceptions.Timeout:
             raise OllamaAPIError(f"Ollama request timed out after 120s")
         except requests.exceptions.RequestException as e:
@@ -150,7 +151,7 @@ ANSWER:"""
             response = requests.get(
                 f"{self.config.base_url}/api/show",
                 params={"name": self.config.model},
-                timeout=10
+                timeout=10,
             )
             if response.status_code == 200:
                 return response.json()

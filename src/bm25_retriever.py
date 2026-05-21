@@ -8,6 +8,7 @@ import math
 @dataclass
 class BM25Result:
     """Represents a BM25 search result."""
+
     chunk_index: int
     score: float
 
@@ -57,7 +58,9 @@ class BM25RetrieverWrapper:
                     self._inverted_index[term] = []
                 self._inverted_index[term].append((chunk_idx, count))
 
-        self._avg_doc_length = sum(self._doc_lengths) / len(self._doc_lengths) if self._doc_lengths else 0
+        self._avg_doc_length = (
+            sum(self._doc_lengths) / len(self._doc_lengths) if self._doc_lengths else 0
+        )
 
     def _tokenize(self, text: str) -> List[str]:
         """Tokenize text: lowercase, simple word split."""
@@ -90,7 +93,9 @@ class BM25RetrieverWrapper:
 
             # TF saturation
             numerator = tf * (self.k1 + 1)
-            denominator = tf + self.k1 * (1 - self.b + self.b * doc_length / max(self._avg_doc_length, 1))
+            denominator = tf + self.k1 * (
+                1 - self.b + self.b * doc_length / max(self._avg_doc_length, 1)
+            )
             score += idf * (numerator / denominator)
 
         return score
@@ -106,7 +111,9 @@ class BM25RetrieverWrapper:
             List of BM25Result with chunk_index and score
         """
         if not self._doc_lengths:
-            raise ValueError("No documents indexed. Call index_documents_from_chunks first.")
+            raise ValueError(
+                "No documents indexed. Call index_documents_from_chunks first."
+            )
 
         query_terms = self._tokenize(query)
 
@@ -118,7 +125,9 @@ class BM25RetrieverWrapper:
 
         scores.sort(key=lambda x: x[1], reverse=True)
 
-        return [BM25Result(chunk_index=idx, score=score) for idx, score in scores[:top_k]]
+        return [
+            BM25Result(chunk_index=idx, score=score) for idx, score in scores[:top_k]
+        ]
 
     def count(self) -> int:
         """Get number of indexed documents."""
@@ -137,7 +146,7 @@ class BM25RetrieverWrapper:
             "b": self.b,
             "_doc_lengths": self._doc_lengths,
             "_avg_doc_length": self._avg_doc_length,
-            "_inverted_index": self._inverted_index
+            "_inverted_index": self._inverted_index,
         }
 
         with open(path, "w", encoding="utf-8") as f:

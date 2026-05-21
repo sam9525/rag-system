@@ -11,7 +11,13 @@ from src.config import config
 class EmbeddingManager:
     """Manages text embeddings using BGE model."""
 
-    def __init__(self, model_name: Optional[str] = None, device: Optional[str] = None, model=None, dimension=None):
+    def __init__(
+        self,
+        model_name: Optional[str] = None,
+        device: Optional[str] = None,
+        model=None,
+        dimension=None,
+    ):
         """Initialize embedding manager.
 
         Args:
@@ -40,6 +46,7 @@ class EmbeddingManager:
         """Check if CUDA is available."""
         try:
             import torch
+
             return torch.cuda.is_available()
         except ImportError:
             return False
@@ -48,10 +55,7 @@ class EmbeddingManager:
         """Load the sentence transformer model."""
         device = device or ("cuda" if self._has_cuda() else "cpu")
         try:
-            return SentenceTransformer(
-                self.config.model_name,
-                device=device
-            )
+            return SentenceTransformer(self.config.model_name, device=device)
         except Exception as e:
             raise RuntimeError(
                 f"Failed to load embedding model '{self.config.model_name}'. "
@@ -64,21 +68,18 @@ class EmbeddingManager:
         embedding = self.model.encode(
             prefixed_text,
             normalize_embeddings=True,  # L2 normalize for FAISS IPS
-            show_progress_bar=False
+            show_progress_bar=False,
         )
         return embedding
 
     def embed_batch(self, texts: List[str], show_progress: bool = True) -> np.ndarray:
         """Embed multiple texts in batch."""
-        prefixed_texts = [
-            self.config.instruction_prefix + text
-            for text in texts
-        ]
+        prefixed_texts = [self.config.instruction_prefix + text for text in texts]
         embeddings = self.model.encode(
             prefixed_texts,
             batch_size=self.config.batch_size,
             normalize_embeddings=True,
-            show_progress_bar=show_progress
+            show_progress_bar=show_progress,
         )
         return embeddings
 

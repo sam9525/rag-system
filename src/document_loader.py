@@ -10,6 +10,7 @@ import fitz  # PyMuPDF
 @dataclass
 class Document:
     """Represents a loaded document chunk."""
+
     page_content: str
     metadata: Dict[str, Any]
 
@@ -17,6 +18,7 @@ class Document:
 @dataclass
 class LoadResult:
     """Result from loading a PDF with warning tracking."""
+
     documents: List[Document]
     empty_pages: List[int]
     total_pages: int
@@ -46,22 +48,24 @@ class DocumentLoader:
                 for page_num, page in enumerate(doc):
                     text = page.get_text()
                     if text.strip():
-                        documents.append(Document(
-                            page_content=text,
-                            metadata={
-                                "source": pdf_path.name,
-                                "page": page_num + 1,
-                                "total_pages": total_pages,
-                                "section": ""
-                            }
-                        ))
+                        documents.append(
+                            Document(
+                                page_content=text,
+                                metadata={
+                                    "source": pdf_path.name,
+                                    "page": page_num + 1,
+                                    "total_pages": total_pages,
+                                    "section": "",
+                                },
+                            )
+                        )
                     else:
                         empty_pages.append(page_num + 1)
 
                 return LoadResult(
                     documents=documents,
                     empty_pages=empty_pages,
-                    total_pages=total_pages
+                    total_pages=total_pages,
                 )
         except Exception as e:
             raise ValueError(f"Failed to load PDF {pdf_path}: {e}")

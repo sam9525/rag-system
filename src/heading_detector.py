@@ -24,9 +24,9 @@ class RegexHeadingDetector(HeadingDetector):
     """Heading detector using regex patterns."""
 
     DEFAULT_PATTERNS = [
-        r'^#{1,3}\s+(.+)$',  # Markdown headings
-        r'^([A-Z][A-Z\s]{5,})\s*$',  # ALL CAPS headings
-        r'^(\d+\.\s+[A-Z].+)$',  # Numbered sections
+        r"^#{1,3}\s+(.+)$",  # Markdown headings
+        r"^([A-Z][A-Z\s]{5,})\s*$",  # ALL CAPS headings
+        r"^(\d+\.\s+[A-Z].+)$",  # Numbered sections
     ]
 
     def __init__(self, patterns: list = None):
