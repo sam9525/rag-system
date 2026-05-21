@@ -12,7 +12,7 @@ def mock_rag():
     rag = MagicMock()
     rag.query.return_value = MagicMock(
         answer="Test answer with topics.",
-        sources=[{"source": "doc.pdf", "page": 1}],
+        sources=[{"source": "doc.pdf", "page": 1, "score": 0.95}],
         retrieved_chunks=[MagicMock(text="Context chunk 1")]
     )
     return rag
