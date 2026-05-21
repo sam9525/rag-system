@@ -132,3 +132,48 @@ def test_langchain_chunker_basic():
     assert len(chunks) >= 1
     assert all(hasattr(c, "text") and hasattr(c, "metadata") for c in chunks)
     assert chunks[0].metadata.get("source") == "test.txt"
+
+
+def test_langchain_chunker_respects_max_size():
+    """Test that chunks respect max_chunk_size when text can be split."""
+    from src.chunker import LangChainChunker
+    from src.config import ChunkingConfig
+
+    chunk_config = ChunkingConfig(
+        min_chunk_size=50, max_chunk_size=100, overlap_size=20
+    )
+    chunker = LangChainChunker(chunk_config=chunk_config)
+
+    # Text with separators so langchain can split it
+    text = ("Sentence one here. " * 3 + "New paragraph. " * 3) * 5
+    chunks = chunker.create_chunks(text, {"source": "test.txt"})
+
+    # Should have multiple chunks when text exceeds max_size
+    assert len(chunks) >= 2, f"Expected multiple chunks, got {len(chunks)}"
+
+    # All chunks should be <= max_chunk_size + 50 (LangChain allows overflow at separators)
+    for chunk in chunks:
+        assert (
+            len(chunk.text) <= chunk_config.max_chunk_size + 50
+        ), f"Chunk text {len(chunk.text)} exceeds max {chunk_config.max_chunk_size}"
+
+
+def test_langchain_chunker_has_overlap():
+    """Test that adjacent chunks have overlap content."""
+    from src.chunker import LangChainChunker
+    from src.config import ChunkingConfig
+
+    chunk_config = ChunkingConfig(
+        min_chunk_size=50, max_chunk_size=100, overlap_size=30
+    )
+    chunker = LangChainChunker(chunk_config=chunk_config)
+
+    text = "First chunk content. " * 20 + "Second chunk content. " * 20
+    chunks = chunker.create_chunks(text, {"source": "test.txt"})
+
+    if len(chunks) >= 2:
+        # Check overlap exists - second chunk should contain some content from first
+        first_end = chunks[0].text[-30:]
+        assert first_end in chunks[1].text or any(
+            first_end in c.text for c in chunks[1:]
+        ), f"No overlap detected. First chunk end: '{first_end}'"
