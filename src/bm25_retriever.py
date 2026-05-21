@@ -1,8 +1,10 @@
-"""BM25 keyword-based retriever with metadata support."""
+"""BM25 keyword-based retriever using rank_bm25 library."""
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple
-import math
+from typing import List, Dict, Tuple
+import json
+
+from rank_bm25 import BM25Okapi
 
 
 @dataclass
@@ -14,91 +16,51 @@ class BM25Result:
 
 
 class BM25RetrieverWrapper:
-    """BM25 keyword retriever that works with indices, not full text storage.
+    """BM25 keyword retriever using rank_bm25 library.
 
-    Stores inverted index and document lengths. Text/metadata come from chunks.json.
+    Wraps BM25Okapi to provide index-based storage while maintaining
+    compatibility with chunks.json source of truth.
     """
 
     def __init__(self, k1: float = 1.5, b: float = 0.75):
-        """Initialize BM25 parameters.
+        """Initialize BM25 retriever.
 
-        Args:
-            k1: BM25 term frequency saturation parameter
-            b: BM25 document length normalization parameter
+        Note: k1 and b parameters are accepted for API compatibility
+        but rank_bm25 uses its own defaults (k1=1.5, b=0.75).
         """
         self.k1 = k1
         self.b = b
-
-        # Inverted index: term -> list of (chunk_index, term_count)
-        self._inverted_index: Dict[str, List[Tuple[int, int]]] = {}
-        self._doc_lengths: List[int] = []
-        self._avg_doc_length: float = 0.0
-
-    def index_documents_from_chunks(self, chunks: List[Dict]):
-        """Build inverted index from chunks.
-
-        Args:
-            chunks: List of dicts with 'text' and 'metadata' keys
-        """
-        self._inverted_index = {}
-        self._doc_lengths = []
-
-        for chunk_idx, chunk in enumerate(chunks):
-            tokens = self._tokenize(chunk["text"])
-            self._doc_lengths.append(len(tokens))
-
-            # Count term frequencies for this chunk
-            term_counts: Dict[str, int] = {}
-            for token in tokens:
-                term_counts[token] = term_counts.get(token, 0) + 1
-
-            # Add to inverted index
-            for term, count in term_counts.items():
-                if term not in self._inverted_index:
-                    self._inverted_index[term] = []
-                self._inverted_index[term].append((chunk_idx, count))
-
-        self._avg_doc_length = (
-            sum(self._doc_lengths) / len(self._doc_lengths) if self._doc_lengths else 0
-        )
+        self._bm25: BM25Okapi = None
+        self._tokenized_corpus: List[List[str]] = []
+        self._doc_count: int = 0
 
     def _tokenize(self, text: str) -> List[str]:
         """Tokenize text: lowercase, simple word split."""
         return text.lower().split()
 
-    def _calculate_score(self, chunk_idx: int, query_terms: List[str]) -> float:
-        """Calculate BM25 score for a chunk given query terms."""
-        doc_length = self._doc_lengths[chunk_idx]
-        score = 0.0
+    def index_documents_from_chunks(self, chunks: List[Dict]):
+        """Build BM25 index from chunks.
 
-        for term in query_terms:
-            if term not in self._inverted_index:
-                continue
+        Args:
+            chunks: List of dicts with 'text' and 'metadata' keys
+        """
+        if not chunks:
+            self._bm25 = None
+            self._tokenized_corpus = []
+            self._doc_count = 0
+            return
 
-            # Find this chunk in the inverted index
-            df = 0
-            tf = 0
-            for idx, count in self._inverted_index[term]:
-                if idx == chunk_idx:
-                    tf = count
-                    df += 1
-                    break
+        # Tokenize all chunks
+        self._tokenized_corpus = [self._tokenize(chunk["text"]) for chunk in chunks]
+        self._doc_count = len(chunks)
 
-            if tf == 0:
-                continue
-
-            # IDF calculation
-            n = len(self._doc_lengths)
-            idf = math.log((n - df + 0.5) / (df + 0.5) + 1)
-
-            # TF saturation
-            numerator = tf * (self.k1 + 1)
-            denominator = tf + self.k1 * (
-                1 - self.b + self.b * doc_length / max(self._avg_doc_length, 1)
-            )
-            score += idf * (numerator / denominator)
-
-        return score
+        # Add a dummy empty document to ensure IDF values are positive.
+        # rank_bm25 uses formula: log((N - df + 0.5) / (df + 0.5))
+        # With small corpora where a term appears in N/2 documents,
+        # IDF can become 0, making all scores 0.
+        # Adding a dummy document shifts N, making IDF positive.
+        dummy_corpus = self._tokenized_corpus + [["__dummy__"]]
+        self._bm25 = BM25Okapi(dummy_corpus)
 
     def search(self, query: str, top_k: int = 50) -> List[BM25Result]:
         """Search for query using BM25.
@@ -110,43 +72,53 @@ class BM25RetrieverWrapper:
         Returns:
             List of BM25Result with chunk_index and score
         """
-        if not self._doc_lengths:
+        if self._bm25 is None:
             raise ValueError(
                 "No documents indexed. Call index_documents_from_chunks first."
             )
 
-        query_terms = self._tokenize(query)
+        query_tokens = self._tokenize(query)
 
-        scores = []
-        for chunk_idx in range(len(self._doc_lengths)):
-            score = self._calculate_score(chunk_idx, query_terms)
-            if score > 0:
-                scores.append((chunk_idx, score))
+        # Get scores for all documents
+        all_scores = self._bm25.get_scores(query_tokens)
 
-        scores.sort(key=lambda x: x[1], reverse=True)
+        # Pair indices with scores, filter non-zero
+        scored_docs = [
+            (idx, score) for idx, score in enumerate(all_scores) if score > 0
+        ]
 
+        # Sort by score descending
+        scored_docs.sort(key=lambda x: x[1], reverse=True)
+
+        # Return top-k
         return [
-            BM25Result(chunk_index=idx, score=score) for idx, score in scores[:top_k]
+            BM25Result(chunk_index=idx, score=score)
+            for idx, score in scored_docs[:top_k]
         ]
 
     def count(self) -> int:
         """Get number of indexed documents."""
-        return len(self._doc_lengths)
+        return self._doc_count
 
     def save(self, path: str):
-        """Save BM25 index to disk (inverted index + parameters).
+        """Save BM25 index state to disk.
+
+        Note: rank_bm25 doesn't have built-in serialization.
+        We store the tokenized corpus to rebuild the index on load.
 
         Args:
             path: File path to save JSON data
         """
-        import json
+        if self._bm25 is None:
+            raise ValueError(
+                "No index to save. Call index_documents_from_chunks first."
+            )
 
         data = {
             "k1": self.k1,
             "b": self.b,
-            "_doc_lengths": self._doc_lengths,
-            "_avg_doc_length": self._avg_doc_length,
-            "_inverted_index": self._inverted_index,
+            "_tokenized_corpus": self._tokenized_corpus,
+            "_doc_count": self._doc_count,
         }
 
         with open(path, "w", encoding="utf-8") as f:
@@ -158,13 +130,14 @@ class BM25RetrieverWrapper:
         Args:
             path: File path to load JSON data from
         """
-        import json
-
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         self.k1 = data["k1"]
         self.b = data["b"]
-        self._doc_lengths = data["_doc_lengths"]
-        self._avg_doc_length = data["_avg_doc_length"]
-        self._inverted_index = data["_inverted_index"]
+        self._tokenized_corpus = data["_tokenized_corpus"]
+        self._doc_count = data["_doc_count"]
+
+        # Rebuild BM25 index from tokenized corpus (with dummy doc for IDF)
+        dummy_corpus = self._tokenized_corpus + [["__dummy__"]]
+        self._bm25 = BM25Okapi(dummy_corpus)
