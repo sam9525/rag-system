@@ -48,9 +48,9 @@ class ChunkingConfig:
 class EvalLLMConfig:
     """Configuration for the LLM used in RAGAS evaluation."""
 
-    provider: str = "ollama"  # "ollama" or "openai"
+    provider: str = "openai"  # "openai" for OpenAI-compatible API (Ollama uses this)
     model: str = "gemma4:e4b"  # Model for evaluation
-    base_url: str = "http://localhost:11434/v1"  # Ollama OpenAI-compatible endpoint
+    base_url: str = "http://localhost:11434/v1"  # Ollama OpenAI-compatible endpoint (include /v1)
     api_key: str = "ollama"  # Dummy for Ollama
 
 
