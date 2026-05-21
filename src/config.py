@@ -42,6 +42,9 @@ class ChunkingConfig:
     min_chunk_size: int = 200
     max_chunk_size: int = 1500
     overlap_size: int = 200
+    separators: list = field(
+        default_factory=lambda: ["\n## ", "\n# ", "\n\n", "\n", " "]
+    )
 
 
 @dataclass

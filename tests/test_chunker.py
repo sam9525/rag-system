@@ -21,7 +21,7 @@ class TestSemanticChunker:
         chunker = SemanticChunker()
         chunks = [
             {"heading": "A", "content": ["Short"]},
-            {"heading": "B", "content": ["Another short"]}
+            {"heading": "B", "content": ["Another short"]},
         ]
         # Chunks should be merged if too small
         result = chunker.merge_small_chunks(chunks)
@@ -47,7 +47,7 @@ class TestSemanticChunker:
         default_count = len(default_chunks)
 
         # With custom detector that treats "---" as a heading
-        custom_detector = RegexHeadingDetector(patterns=[r'^---+$'])
+        custom_detector = RegexHeadingDetector(patterns=[r"^---+$"])
         custom_chunker = SemanticChunker()
         custom_chunker.heading_detector = custom_detector
         custom_chunks = custom_chunker.create_chunks(text, {"source": "test.pdf"})
@@ -65,9 +65,7 @@ class TestSemanticChunker:
         from src.config import ChunkingConfig
 
         chunk_config = ChunkingConfig(
-            min_chunk_size=50,
-            max_chunk_size=100,
-            overlap_size=20
+            min_chunk_size=50, max_chunk_size=100, overlap_size=20
         )
         chunker = SemanticChunker(chunk_config=chunk_config)
 
@@ -99,9 +97,25 @@ class TestSemanticChunker:
         expected_overlap = first_chunk_text[-20:]
 
         # Second chunk should start with overlap
-        assert second_chunk_text.startswith(expected_overlap) or expected_overlap in second_chunk_text, (
+        assert (
+            second_chunk_text.startswith(expected_overlap)
+            or expected_overlap in second_chunk_text
+        ), (
             f"Overlap verification failed.\n"
             f"First chunk last 20 chars: '{expected_overlap}'\n"
             f"Second chunk start: '{second_chunk_text[:50]}...'\n"
             f"Second chunk: '{second_chunk_text}'"
         )
+
+
+def test_chunking_config_has_separators():
+    """Test that ChunkingConfig supports custom separators."""
+    from src.config import ChunkingConfig
+
+    config = ChunkingConfig(
+        min_chunk_size=100,
+        max_chunk_size=500,
+        overlap_size=50,
+        separators=["\n## ", "\n# ", "\n\n", "\n", " "],
+    )
+    assert config.separators == ["\n## ", "\n# ", "\n\n", "\n", " "]
