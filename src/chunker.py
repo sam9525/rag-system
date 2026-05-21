@@ -10,6 +10,25 @@ from src.chunk import Chunk
 from src.config import config
 from src.heading_detector import RegexHeadingDetector, HeadingDetector
 
+_langchain_splitter_cache = {}
+
+
+def _get_langchain_splitter(chunk_config) -> RecursiveCharacterTextSplitter:
+    """Get or create a langchain splitter for the given config."""
+    cache_key = (
+        chunk_config.max_chunk_size,
+        chunk_config.overlap_size,
+        tuple(chunk_config.separators),
+    )
+    if cache_key not in _langchain_splitter_cache:
+        _langchain_splitter_cache[cache_key] = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_config.max_chunk_size,
+            chunk_overlap=chunk_config.overlap_size,
+            separators=chunk_config.separators,
+            length_function=len,
+        )
+    return _langchain_splitter_cache[cache_key]
+
 
 class SemanticChunker:
     """Chunks documents by semantic structure (headings, sections)."""
@@ -114,43 +133,20 @@ class SemanticChunker:
         return chunks
 
     def create_chunks(self, text: str, base_metadata: Dict) -> List[Chunk]:
-        """Create chunks from text with metadata."""
-        sections = self.split_by_headings(text)
+        """Create chunks - delegates to langchain RecursiveCharacterTextSplitter."""
+        splitter = _get_langchain_splitter(self.config)
 
-        # Build initial chunks
-        chunks = []
-        for section in sections:
-            chunks.append(
-                {"heading": section["heading"], "content": section["content"]}
-            )
+        doc = Document(page_content=text)
+        split_docs = splitter.split_documents([doc])
 
-        # Merge small chunks
-        chunks = self.merge_small_chunks(chunks)
-
-        # Split large chunks
-        final_chunks = []
-        for chunk in chunks:
-            sub_chunks = self.split_large_chunks(chunk)
-            final_chunks.extend(sub_chunks)
-
-        # Create Chunk objects with metadata
         result = []
-        for idx, chunk in enumerate(final_chunks):
-            text_content = "\n".join(chunk["content"])
-
-            # Add overlap with previous chunk
-            if idx > 0:
-                prev_content_list = final_chunks[idx - 1]["content"]
-                prev_text = "\n".join(prev_content_list)
-                overlap_text = prev_text[-self.config.overlap_size :]
-                text_content = overlap_text + "\n" + text_content
-
+        for idx, split_doc in enumerate(split_docs):
             result.append(
                 Chunk(
-                    text=text_content.strip(),
+                    text=split_doc.page_content,
                     metadata={
                         **base_metadata,
-                        "section": chunk.get("heading", ""),
+                        "section": "",  # Preserve metadata key for compatibility
                         "chunk_id": idx,
                     },
                     chunk_id=idx,
