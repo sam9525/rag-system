@@ -1,6 +1,6 @@
 """Hybrid retriever combining semantic and keyword search with RRF fusion."""
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 from src.embeddings import EmbeddingManager
 from src.vector_store import VectorStore
@@ -84,7 +84,7 @@ class HybridRetriever:
         semantic_top_k: int = None,
         keyword_top_k: int = None,
         final_top_k: int = None,
-        top_k: int = None,  # Alias for final_top_k
+        rerank_mode: str = "hybrid",
     ) -> List[RRFResult]:
         """Search using hybrid retrieval and return top chunks.
 
@@ -93,17 +93,15 @@ class HybridRetriever:
             semantic_top_k: Top k from semantic search (default from config)
             keyword_top_k: Top k from keyword search (default from config)
             final_top_k: Final number of results (default from config)
-            top_k: Alias for final_top_k
+            rerank_mode: One of "rrf", "neural", or "hybrid".
+                - "rrf": Only RRF fusion, no neural reranking
+                - "neural": Only semantic + neural reranking, skip keyword search
+                - "hybrid": Full pipeline (default)
 
         Returns:
             List of RRFResult objects with full chunk data from chunks list
         """
-        # Handle top_k alias for final_top_k
-        if top_k is not None:
-            final_top_k = top_k
-        else:
-            final_top_k = final_top_k or self.config.final_top_k
-
+        final_top_k = final_top_k or self.config.final_top_k
         semantic_top_k = semantic_top_k or self.config.semantic_top_k
         keyword_top_k = keyword_top_k or self.config.keyword_top_k
 
@@ -111,60 +109,102 @@ class HybridRetriever:
         if not self.chunks:
             return []
 
-        # Semantic search - returns (chunk_index, distance)
+        # Semantic search always runs
         query_embedding = self.embedding_manager.embed_text(query)
         semantic_results = self.vector_store.search(
             query_embedding, top_k=semantic_top_k
         )
 
-        # Keyword search - returns (chunk_index, score)
-        keyword_results = self.bm25_retriever.search(query, top_k=keyword_top_k)
+        results: List[RRFResult]
 
-        # RRF fusion on indices
-        fused_ranking = rrf_fusion(
-            semantic_results,
-            [(r.chunk_index, r.score) for r in keyword_results],
-            k=self.config.rrf_k,
-        )
+        if rerank_mode == "neural":
+            # Semantic search only, no keyword/RRF
+            results = self._build_results_from_semantic(semantic_results, final_top_k)
+        elif rerank_mode == "rrf":
+            # RRF fusion without neural reranking
+            keyword_results = self.bm25_retriever.search(query, top_k=keyword_top_k)
+            fused_ranking = rrf_fusion(
+                semantic_results,
+                [(r.chunk_index, r.score) for r in keyword_results],
+                k=self.config.rrf_k,
+            )
+            results = self._build_results_from_fusion(
+                fused_ranking, semantic_results, keyword_results, final_top_k
+            )
+        else:  # "hybrid"
+            # Full pipeline: RRF + neural reranking
+            keyword_results = self.bm25_retriever.search(query, top_k=keyword_top_k)
+            fused_ranking = rrf_fusion(
+                semantic_results,
+                [(r.chunk_index, r.score) for r in keyword_results],
+                k=self.config.rrf_k,
+            )
+            results = self._build_results_from_fusion(
+                fused_ranking,
+                semantic_results,
+                keyword_results,
+                self.config.rerank_top_k,
+            )
 
-        # Build lookup for scores
+        # Apply neural reranking if enabled and mode is hybrid
+        if self.rerank and rerank_mode == "hybrid":
+            reranked = self.rerank(query, [r.text for r in results], top_k=final_top_k)
+            reranked_texts = {r.text: r for r in reranked}
+            results = [
+                reranked_texts.get(r.text, r)
+                for r in results[:final_top_k]
+                if r.text in reranked_texts
+            ]
+
+        return results
+
+    def _build_results_from_semantic(
+        self,
+        semantic_results: List[Tuple[int, float]],
+        final_top_k: int,
+    ) -> List[RRFResult]:
+        """Build RRFResult list from semantic search only."""
+        results = []
+        for chunk_idx, sem_score in semantic_results[:final_top_k]:
+            if chunk_idx < len(self.chunks):
+                chunk = self.chunks[chunk_idx]
+                results.append(
+                    RRFResult(
+                        text=chunk["text"],
+                        score=sem_score,
+                        metadata=chunk.get("metadata", {}),
+                        chunk_index=chunk_idx,
+                        semantic_score=sem_score,
+                        keyword_score=None,
+                    )
+                )
+        return results
+
+    def _build_results_from_fusion(
+        self,
+        fused_ranking: List[Tuple[int, float]],
+        semantic_results: List[Tuple[int, float]],
+        keyword_results: List,
+        final_top_k: int,
+    ) -> List[RRFResult]:
+        """Build RRFResult list from RRF fusion."""
         sem_lookup = {idx: score for idx, score in semantic_results}
         kw_lookup = {r.chunk_index: r.score for r in keyword_results}
 
-        # Build final results with full chunk data from self.chunks
         results = []
         for chunk_idx, rrf_score in fused_ranking[:final_top_k]:
             if chunk_idx < len(self.chunks):
                 chunk = self.chunks[chunk_idx]
-                sem_score = sem_lookup.get(chunk_idx)
-                kw_score = kw_lookup.get(chunk_idx)
-
                 results.append(
                     RRFResult(
                         text=chunk["text"],
                         score=rrf_score,
                         metadata=chunk.get("metadata", {}),
                         chunk_index=chunk_idx,
-                        semantic_score=sem_score,
-                        keyword_score=kw_score,
+                        semantic_score=sem_lookup.get(chunk_idx),
+                        keyword_score=kw_lookup.get(chunk_idx),
                     )
                 )
-
-        # Apply neural reranking if enabled
-        if self.rerank:
-            rerank_top_k = self.config.rerank_top_k
-            rerank_candidates = results[:rerank_top_k]
-            reranked = self.rerank(
-                query, [r.text for r in rerank_candidates], top_k=final_top_k
-            )
-            # Map reranked results back to full RRFResult
-            reranked_texts = {r.text: r for r in reranked}
-            results = [
-                reranked_texts.get(r.text, r)
-                for r in rerank_candidates[:final_top_k]
-                if r.text in reranked_texts
-            ]
-
         return results
 
     def count(self) -> int:

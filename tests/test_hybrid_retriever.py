@@ -2,7 +2,8 @@
 
 import pytest
 import numpy as np
-from src.hybrid_retriever import HybridRetriever, RRFResult
+from src.hybrid_retriever import HybridRetriever
+from src.rrf_fusion import RRFResult, rrf_fusion
 
 
 class TestHybridRetriever:
@@ -24,7 +25,7 @@ class TestHybridRetriever:
             (0, 0.6),  # doc_a at index 0
         ]
 
-        fused = retriever._rrf_fusion(semantic_results, keyword_results, k=60)
+        fused = rrf_fusion(semantic_results, keyword_results, k=60)
 
         # doc_b (index 1) should be ranked first (top in both)
         assert fused[0][0] == 1  # index 1
@@ -38,7 +39,7 @@ class TestHybridRetriever:
     def test_empty_corpus_handling(self):
         """Test handling of empty corpus."""
         retriever = HybridRetriever(embedding_dim=128)
-        results = retriever.search("query", top_k=3)
+        results = retriever.search("query", final_top_k=3)
         assert len(results) == 0
 
     def test_inject_mock_embedding_manager(self):
@@ -100,7 +101,7 @@ class TestHybridRetriever:
         ]
 
         retriever.index_documents(chunks)
-        results = retriever.search("physics research", top_k=2)
+        results = retriever.search("physics research", final_top_k=2)
 
         # "physics" embedding should match physics chunk
         assert results[0].text.startswith("Physics")
@@ -135,7 +136,7 @@ class TestHybridRetriever:
         ]
 
         retriever.index_documents(chunks)
-        results = retriever.search("physics research", top_k=2)
+        results = retriever.search("physics research", final_top_k=2)
 
         # Should return results
         assert len(results) >= 1
@@ -176,3 +177,101 @@ class TestHybridRetriever:
         assert retriever.count() == 2
         # Chunks should be available for search results
         # (note: vector_store is empty, so search won't work without indexing)
+
+    def test_retrieval_mode_rrf(self):
+        """Test retrieval with only RRF fusion (no neural reranking)."""
+        class MockEmbeddingManager:
+            dimension = 128
+            model_name = "mock"
+            def embed_text(self, text):
+                import numpy as np
+                return np.random.rand(128)
+            def embed_batch(self, texts, show_progress=False):
+                import numpy as np
+                return np.random.rand(len(texts), 128)
+
+        mock_emb = MockEmbeddingManager()
+        retriever = HybridRetriever(embedding_manager=mock_emb, embedding_dim=128)
+
+        chunks = [
+            {"text": "Physics document", "metadata": {"source": "p.pdf", "page": 1}},
+            {"text": "Chemistry document", "metadata": {"source": "c.pdf", "page": 1}},
+        ]
+        retriever.index_documents(chunks)
+
+        # RRF mode should work without reranker
+        results = retriever.search("physics", final_top_k=2, rerank_mode="rrf")
+        assert len(results) >= 1
+        assert results[0].metadata.get("source") == "p.pdf"
+
+    def test_retrieval_mode_neural(self):
+        """Test retrieval with only neural reranking (no keyword search)."""
+        class MockEmbeddingManager:
+            dimension = 128
+            model_name = "mock"
+            def embed_text(self, text):
+                import numpy as np
+                vec = np.zeros(128)
+                if "physics" in text.lower():
+                    vec[0] = 1.0
+                return vec
+            def embed_batch(self, texts, show_progress=False):
+                import numpy as np
+                return np.array([self.embed_text(t) for t in texts])
+
+        mock_emb = MockEmbeddingManager()
+        retriever = HybridRetriever(embedding_manager=mock_emb, embedding_dim=128)
+
+        # Set up mock reranker
+        class MockRerank:
+            def __call__(self, query, chunks, top_k):
+                from src.neural_rerank import RerankResult
+                return [RerankResult(text=chunks[0], rerank_score=1.0, original_index=0)]
+
+        retriever.rerank = MockRerank()
+
+        chunks = [
+            {"text": "Physics deals with matter", "metadata": {"source": "p.pdf", "page": 1}},
+            {"text": "Chemistry is about substances", "metadata": {"source": "c.pdf", "page": 1}},
+        ]
+        retriever.index_documents(chunks)
+
+        # Neural mode should use reranker
+        results = retriever.search("physics", final_top_k=2, rerank_mode="neural")
+        assert len(results) >= 1
+
+    def test_retrieval_mode_hybrid(self):
+        """Test hybrid mode with both RRF and neural reranking."""
+        class MockEmbeddingManager:
+            dimension = 128
+            model_name = "mock"
+            def embed_text(self, text):
+                import numpy as np
+                vec = np.zeros(128)
+                if "physics" in text.lower():
+                    vec[0] = 1.0
+                return vec
+            def embed_batch(self, texts, show_progress=False):
+                import numpy as np
+                return np.array([self.embed_text(t) for t in texts])
+
+        mock_emb = MockEmbeddingManager()
+        retriever = HybridRetriever(embedding_manager=mock_emb, embedding_dim=128)
+
+        # Set up mock reranker
+        class MockRerank:
+            def __call__(self, query, chunks, top_k):
+                from src.neural_rerank import RerankResult
+                return [RerankResult(text=chunks[0], rerank_score=1.0, original_index=0)]
+
+        retriever.rerank = MockRerank()
+
+        chunks = [
+            {"text": "Physics deals with matter", "metadata": {"source": "p.pdf", "page": 1}},
+            {"text": "Chemistry is about substances", "metadata": {"source": "c.pdf", "page": 1}},
+        ]
+        retriever.index_documents(chunks)
+
+        # Hybrid mode should use both
+        results = retriever.search("physics", final_top_k=2, rerank_mode="hybrid")
+        assert len(results) >= 1

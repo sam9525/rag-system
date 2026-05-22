@@ -59,13 +59,18 @@ class RAGASEvaluator:
     and context relevance.
     """
 
-    def __init__(self, rag_system):
+    def __init__(self, rag_system, rerank_mode: str = "hybrid"):
         """Initialize evaluator with RAG system and config.
 
         Args:
             rag_system: RAGSystem instance to evaluate.
+            rerank_mode: One of "rrf", "neural", or "hybrid".
+                - "rrf": Only RRF fusion, no neural reranking
+                - "neural": Only semantic + neural reranking, skip keyword search
+                - "hybrid": Full pipeline (default)
         """
         self.rag = rag_system
+        self.rerank_mode = rerank_mode
         self.metrics = [
             "faithfulness",
             "answer_relevancy",
@@ -157,7 +162,7 @@ class RAGASEvaluator:
             EvalResult with ragas LLM-evaluated scores.
         """
         # Get RAG response
-        rag_result = self.rag.query(case.question)
+        rag_result = self.rag.query(case.question, rerank_mode=self.rerank_mode)
         answer = rag_result.answer
         sources = rag_result.sources
 

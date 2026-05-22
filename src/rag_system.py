@@ -173,12 +173,21 @@ class RAGSystem:
             "dirty_files": dirty,
         }
 
-    def query(self, question: str, top_k: int = 3) -> RAGQueryResult:
+    def query(
+        self,
+        question: str,
+        top_k: int = 3,
+        rerank_mode: str = "hybrid",
+    ) -> RAGQueryResult:
         """Query the RAG system.
 
         Args:
             question: User's question
             top_k: Number of chunks to retrieve (default 3)
+            rerank_mode: One of "rrf", "neural", or "hybrid".
+                - "rrf": Only RRF fusion, no neural reranking
+                - "neural": Only semantic + neural reranking, skip keyword search
+                - "hybrid": Full pipeline (default)
 
         Returns:
             RAGQueryResult with answer and sources
@@ -187,7 +196,11 @@ class RAGSystem:
             raise ValueError("No documents indexed. Call ingest_documents() first.")
 
         # Retrieve chunks
-        retrieved_chunks = self.retriever.search(question, final_top_k=top_k)
+        retrieved_chunks = self.retriever.search(
+            question,
+            final_top_k=top_k,
+            rerank_mode=rerank_mode,
+        )
 
         # Transform chunks for generator
         chunks_for_gen = self._transform_chunks_for_generator(retrieved_chunks)
