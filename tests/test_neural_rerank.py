@@ -64,3 +64,37 @@ def test_config_has_reranking_options():
     assert hasattr(config.retrieval, 'use_neural_rerank')
     assert hasattr(config.retrieval, 'rerank_model')
     assert hasattr(config.retrieval, 'rerank_top_k')
+
+
+def test_hybrid_retriever_with_rerank():
+    from src.hybrid_retriever import HybridRetriever
+    from src.neural_rerank import NoOpRerank
+
+    retriever = HybridRetriever()
+
+    # Test that rerank can be set
+    retriever.set_rerank(NoOpRerank())
+    assert retriever.rerank is not None
+
+    # Test search returns rerank results
+    chunks = [
+        {"text": "First chunk about AI", "metadata": {}},
+        {"text": "Second chunk about security", "metadata": {}},
+        {"text": "Third chunk about prompts", "metadata": {}},
+    ]
+    retriever.index_documents(chunks)
+
+    results = retriever.search("AI security", top_k=2)
+    assert len(results) == 2
+
+
+def test_rag_system_with_rerank():
+    from src.config import config
+    from src.rag_system import RAGSystem
+    from src.neural_rerank import NoOpRerank
+
+    # Test with reranking disabled (default)
+    config.retrieval.use_neural_rerank = False
+    rag = RAGSystem(source_dir=None)  # Don't need actual files
+    assert rag.retriever.rerank is not None
+    assert isinstance(rag.retriever.rerank, NoOpRerank)
