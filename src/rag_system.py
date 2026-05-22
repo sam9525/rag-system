@@ -8,7 +8,8 @@ from pathlib import Path
 from src.config import config
 from src.document_loader import DocumentLoader
 from src.chunker import create_chunks, Chunk
-from src.hybrid_retriever import HybridRetriever, RRFResult
+from src.hybrid_retriever import HybridRetriever
+from src.rrf_fusion import RRFResult
 from src.generator import OllamaGenerator, OllamaConnectionError, OllamaAPIError
 from src.index_manager import IndexManager, IndexManifest
 from src.neural_rerank import NeuralRerank

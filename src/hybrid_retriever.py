@@ -1,25 +1,13 @@
 """Hybrid retriever combining semantic and keyword search with RRF fusion."""
 
-from dataclasses import dataclass
-from typing import List, Tuple, Optional, Dict
+from typing import List, Dict, Optional
 
 from src.embeddings import EmbeddingManager
 from src.vector_store import VectorStore
 from src.bm25_retriever import BM25RetrieverWrapper, BM25Result
 from src.neural_rerank import NeuralRerank, RerankResult
+from src.rrf_fusion import RRFResult, rrf_fusion
 from src.config import config
-
-
-@dataclass
-class RRFResult:
-    """Result from RRF fusion with full chunk data."""
-
-    text: str
-    score: float
-    metadata: dict
-    chunk_index: int = 0
-    semantic_score: Optional[float] = None
-    keyword_score: Optional[float] = None
 
 
 class HybridRetriever:
@@ -90,42 +78,6 @@ class HybridRetriever:
         # Keyword indexing - BM25 (BM25 stores indices, not full text)
         self.bm25_retriever.index_documents_from_chunks(chunks)
 
-    def _rrf_fusion(
-        self,
-        semantic_results: List[Tuple[int, float]],
-        keyword_results: List[Tuple[int, float]],
-        k: int = 60,
-    ) -> List[Tuple[int, float]]:
-        """Apply Reciprocal Rank Fusion.
-
-        RRF_score(d) = Σ 1/(k + rank_i(d))
-
-        Args:
-            semantic_results: List of (chunk_index, score) from FAISS
-            keyword_results: List of (chunk_index, score) from BM25
-            k: RRF smoothing parameter (default 60)
-
-        Returns:
-            Combined ranking as list of (chunk_index, rrf_score)
-        """
-        # Build score maps keyed by chunk index
-        rrf_scores: Dict[int, float] = {}
-
-        for rank, (chunk_idx, _) in enumerate(semantic_results, 1):
-            if chunk_idx not in rrf_scores:
-                rrf_scores[chunk_idx] = 0
-            rrf_scores[chunk_idx] += 1 / (k + rank)
-
-        for rank, (chunk_idx, _) in enumerate(keyword_results, 1):
-            if chunk_idx not in rrf_scores:
-                rrf_scores[chunk_idx] = 0
-            rrf_scores[chunk_idx] += 1 / (k + rank)
-
-        # Sort by RRF score
-        sorted_results = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
-
-        return sorted_results
-
     def search(
         self,
         query: str,
@@ -169,7 +121,7 @@ class HybridRetriever:
         keyword_results = self.bm25_retriever.search(query, top_k=keyword_top_k)
 
         # RRF fusion on indices
-        fused_ranking = self._rrf_fusion(
+        fused_ranking = rrf_fusion(
             semantic_results,
             [(r.chunk_index, r.score) for r in keyword_results],
             k=self.config.rrf_k,
