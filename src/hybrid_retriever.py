@@ -6,6 +6,7 @@ from typing import List, Tuple, Optional, Dict
 from src.embeddings import EmbeddingManager
 from src.vector_store import VectorStore
 from src.bm25_retriever import BM25RetrieverWrapper, BM25Result
+from src.neural_rerank import NeuralRerank, RerankResult
 from src.config import config
 
 
@@ -55,6 +56,17 @@ class HybridRetriever:
 
         # Single source of truth for all chunks
         self.chunks: List[Dict] = []
+
+        # Reranker for second-stage ranking (None = disabled)
+        self.rerank: Optional[NeuralRerank] = None
+
+    def set_rerank(self, rerank: NeuralRerank):
+        """Set the reranker to use after RRF fusion.
+
+        Args:
+            rerank: NeuralRerank instance for reranking
+        """
+        self.rerank = rerank
 
     def index_documents(self, chunks: List[Dict]):
         """Index documents for hybrid retrieval.
@@ -185,6 +197,21 @@ class HybridRetriever:
                         keyword_score=kw_score,
                     )
                 )
+
+        # Apply neural reranking if enabled
+        if self.rerank:
+            rerank_top_k = self.config.rerank_top_k
+            rerank_candidates = results[:rerank_top_k]
+            reranked = self.rerank(
+                query, [r.text for r in rerank_candidates], top_k=final_top_k
+            )
+            # Map reranked results back to full RRFResult
+            reranked_texts = {r.text: r for r in reranked}
+            results = [
+                reranked_texts.get(r.text, r)
+                for r in rerank_candidates[:final_top_k]
+                if r.text in reranked_texts
+            ]
 
         return results
 

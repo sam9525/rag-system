@@ -11,7 +11,7 @@ from src.chunker import create_chunks, Chunk
 from src.hybrid_retriever import HybridRetriever, RRFResult
 from src.generator import OllamaGenerator, OllamaConnectionError, OllamaAPIError
 from src.index_manager import IndexManager, IndexManifest
-from src.neural_rerank import NeuralRerank, NoOpRerank
+from src.neural_rerank import NeuralRerank
 
 
 @dataclass
@@ -43,11 +43,9 @@ class RAGSystem:
         self.generator = OllamaGenerator()
         self.index_manager = IndexManager(self.index_dir)
 
-        # Initialize reranker based on config
+        # Initialize reranker based on config (None if disabled)
         if config.retrieval.use_neural_rerank:
             self.retriever.set_rerank(NeuralRerank(model=config.retrieval.rerank_model))
-        else:
-            self.retriever.set_rerank(NoOpRerank())
 
         self._indexed = False
 

@@ -1,6 +1,5 @@
 """Neural reranking using cross-encoder models."""
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -14,35 +13,7 @@ class RerankResult:
     original_index: int
 
 
-class BaseRerank(ABC):
-    """Abstract base class for rerankers."""
-
-    @abstractmethod
-    def __call__(self, query: str, chunks: List[str], top_k: int) -> List[RerankResult]:
-        """Rerank chunks based on query relevance."""
-        pass
-
-
-class NoOpRerank(BaseRerank):
-    """Pass-through reranker that returns chunks in original order.
-
-    Used when neural reranking is disabled or for testing.
-    """
-
-    def __call__(self, query: str, chunks: List[str], top_k: int) -> List[RerankResult]:
-        results = []
-        for i, text in enumerate(chunks[:top_k]):
-            results.append(
-                RerankResult(
-                    text=text,
-                    rerank_score=1.0 / (i + 1),  # Decreasing score
-                    original_index=i,
-                )
-            )
-        return results
-
-
-class NeuralRerank(BaseRerank):
+class NeuralRerank:
     """Neural reranker using sentence-transformers CrossEncoder.
 
     Uses Microsoft's MiniLM model optimized for MS MARCO passage ranking.
@@ -87,13 +58,9 @@ class NeuralRerank(BaseRerank):
         if not chunks:
             return []
 
-        # Create query-document pairs
         pairs = [[query, chunk] for chunk in chunks]
-
-        # Get relevance scores from cross-encoder
         scores = self.model.predict(pairs)
 
-        # Build results with scores
         results = [
             RerankResult(
                 text=chunks[i],
@@ -107,7 +74,5 @@ class NeuralRerank(BaseRerank):
             for i in range(len(chunks))
         ]
 
-        # Sort by rerank score descending
         results.sort(key=lambda x: x.rerank_score, reverse=True)
-
         return results[:top_k]

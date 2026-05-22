@@ -9,16 +9,14 @@ from src.config import config
 
 
 def test_reranking_disabled_by_default(tmp_path):
-    """Test that RRF-only mode works when reranking disabled."""
+    """Test that reranking is disabled when config is False."""
     config.retrieval.use_neural_rerank = False
     config.retrieval.final_top_k = 3
 
     rag = RAGSystem(source_dir=tmp_path)
 
-    # Rerank should be NoOpRerank
-    from src.neural_rerank import NoOpRerank
-
-    assert isinstance(rag.retriever.rerank, NoOpRerank)
+    # Rerank should be None (disabled)
+    assert rag.retriever.rerank is None
 
 
 def test_reranking_enabled_via_config(tmp_path):
@@ -28,11 +26,10 @@ def test_reranking_enabled_via_config(tmp_path):
 
     rag = RAGSystem(source_dir=tmp_path)
 
-    # Rerank should be NeuralRerank (or NoOp if model unavailable)
-    from src.neural_rerank import NeuralRerank, NoOpRerank
+    # Rerank should be NeuralRerank
+    from src.neural_rerank import NeuralRerank
 
-    rerank = rag.retriever.rerank
-    assert isinstance(rerank, (NeuralRerank, NoOpRerank))
+    assert isinstance(rag.retriever.rerank, NeuralRerank)
 
     # Reset config
     config.retrieval.use_neural_rerank = False
