@@ -85,13 +85,7 @@ CASES = [
         ],
         source_hint="AI Security",
     ),
-    # --- Hallucination & Context Poisoning ---
-    EvalCase(
-        question="What is hallucination in LLM outputs and why is it a security concern?",
-        ground_truth="Hallucination in LLMs refers to the model generating confident but incorrect, fabricated, or misleading information. In security contexts, this is dangerous because users may trust and act on false information, leading to security misconfigurations, incorrect vulnerability assessments, or compliance violations.",
-        expected_topics=["hallucination", "confident", "incorrect", "misleading"],
-        source_hint="OWASP Top 10 for LLM",
-    ),
+    # --- Context Poisoning ---
     EvalCase(
         question="What is context poisoning in agentic AI systems?",
         ground_truth="Context poisoning occurs when an attacker manipulates the input context of an AI agent to influence its behavior, memory, or decisions. This can happen through malicious inputs stored in memory, manipulated conversation history, or crafted prompts that gradually shift the agent's goals or bypass safety measures.",
@@ -99,3 +93,68 @@ CASES = [
         source_hint="Securing Agentic Applications Guide",
     ),
 ]
+
+# --- Dual-Use Dilemma: AI in Offensive vs. Defensive Security ---
+CASES.extend(
+    [
+        EvalCase(
+            question="What are the dual-use security concerns with AI systems?",
+            ground_truth="AI systems present dual-use concerns because the same capabilities used for legitimate security tasks (threat detection, vulnerability scanning, automation) can be repurposed for offensive attacks (automated exploitation, AI-guided attacks). This includes LLM-guided tools like AutoAttacker that can automate reconnaissance, vulnerability analysis, and attack execution.",
+            expected_topics=[
+                "dual-use",
+                "offensive",
+                "defensive",
+                "automation",
+                "AI-guided",
+            ],
+            source_hint="AI Security - Dual-Use",
+        ),
+        EvalCase(
+            question="What are the key differences between offensive and defensive AI security approaches?",
+            ground_truth="Offensive AI security focuses on identifying and exploiting vulnerabilities (automated attacks, red teaming, penetration testing), while defensive AI security focuses on protecting systems (threat detection, access control, incident response). Defensive approaches include zero-trust architecture, NIST CSF frameworks, and secure-by-design principles, while offensive approaches leverage AI for speed and scalability in attack execution.",
+            expected_topics=[
+                "offensive",
+                "defensive",
+                "red team",
+                "zero-trust",
+                "threat detection",
+            ],
+            source_hint="AI Security - Offensive vs Defensive",
+        ),
+        EvalCase(
+            question="What security controls are needed to defend against AI-guided attacks?",
+            ground_truth="Defenses against AI-guided attacks require: zero-trust architecture (never trust, always verify), continuous authentication, least-privilege access, AI-specific controls (input/output validation, model hardening), threat modeling for AI components, and framework-aligned practices like NIST CSF. Organizations should assume AI-powered attacks are inevitable and build resilient, layered defenses.",
+            expected_topics=[
+                "zero-trust",
+                "least privilege",
+                "input validation",
+                "threat modeling",
+                "resilience",
+            ],
+            source_hint="AI and Zero-Trust Roadmap",
+        ),
+        EvalCase(
+            question="How do AI security frameworks address both offensive and defensive considerations?",
+            ground_truth="AI security frameworks like NIST CSF for AI and OWASP Top 10 for LLM/Agentic Applications provide defensive guidance (Govern, Identify, Protect, Detect, Respond, Recover) while acknowledging offensive realities. They address dual-use by recommending threat modeling, secure design principles, and supply chain security to mitigate risks from AI misuse and automated attack systems.",
+            expected_topics=[
+                "NIST",
+                "OWASP",
+                "framework",
+                "threat modeling",
+                "supply chain",
+            ],
+            source_hint="AI Security Frameworks",
+        ),
+        EvalCase(
+            question="What is model poisoning and how can it affect both offensive and defensive AI systems?",
+            ground_truth="Model poisoning is a supply chain attack where malicious data or weights are introduced during training to compromise model behavior. This affects defensive AI (compromised threat detection) and offensive AI (poisoned attack tools). Defenses include supply chain verification, model provenance tracking, secure training pipelines, and using trusted sources as recommended by frameworks like UK AI Cyber Security CoP.",
+            expected_topics=[
+                "model poisoning",
+                "supply chain",
+                "training data",
+                "model provenance",
+            ],
+            source_hint="AI Supply Chain Security",
+        ),
+    ]
+)
