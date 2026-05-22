@@ -22,6 +22,10 @@ class RetrievalConfig:
     keyword_top_k: int = 50
     final_top_k: int = 3
     rrf_k: int = 60
+    # Neural reranking options
+    use_neural_rerank: bool = False
+    rerank_model: Optional[str] = None  # None = default model
+    rerank_top_k: int = 10  # Candidates to rerank
 
 
 @dataclass
@@ -39,7 +43,7 @@ class GenerationConfig:
 class ChunkingConfig:
     """Chunking configuration."""
 
-    min_chunk_size: int = 200
+    min_chunk_size: int = 500
     max_chunk_size: int = 1500
     overlap_size: int = 200
     separators: list = field(

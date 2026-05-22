@@ -57,3 +57,10 @@ class TestRerankResult:
         assert result.text == "test"
         assert result.rerank_score == 0.95
         assert result.original_index == 2
+
+
+def test_config_has_reranking_options():
+    from src.config import config
+    assert hasattr(config.retrieval, 'use_neural_rerank')
+    assert hasattr(config.retrieval, 'rerank_model')
+    assert hasattr(config.retrieval, 'rerank_top_k')
