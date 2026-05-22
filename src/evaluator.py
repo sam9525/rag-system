@@ -15,6 +15,7 @@ from ragas.metrics.collections import (
     AnswerRelevancy,
     ContextPrecision,
     ContextRecall,
+    ContextRelevance,
 )
 from ragas.embeddings import OpenAIEmbeddings
 from ragas.embeddings.base import BaseRagasEmbedding
@@ -47,13 +48,15 @@ class EvalResult:
     answer_relevancy: float = 0.0
     context_precision: float = 0.0
     context_recall: float = 0.0
+    context_relevance: float = 0.0
 
 
 class RAGASEvaluator:
     """Evaluates RAG system responses using RAGAS with LLM-based metrics.
 
     This evaluator uses the ragas library to compute LLM-evaluated metrics
-    including faithfulness, answer relevancy, context precision, and context recall.
+    including faithfulness, answer relevancy, context precision, context recall,
+    and context relevance.
     """
 
     def __init__(self, rag_system):
@@ -68,6 +71,7 @@ class RAGASEvaluator:
             "answer_relevancy",
             "context_precision",
             "context_recall",
+            "context_relevance",
         ]
         self._llm = None
         self._embeddings = None
@@ -75,6 +79,7 @@ class RAGASEvaluator:
         self._answer_relevancy = None
         self._context_precision = None
         self._context_recall = None
+        self._context_relevance = None
 
         # Initialize OpenAI client for Ollama (OpenAI-compatible API)
         self._async_client = AsyncOpenAI(
@@ -100,6 +105,7 @@ class RAGASEvaluator:
         )
         self._context_precision = ContextPrecision(llm=self._llm)
         self._context_recall = ContextRecall(llm=self._llm)
+        self._context_relevance = ContextRelevance(llm=self._llm)
 
     async def _score_sample(
         self,
@@ -118,6 +124,9 @@ class RAGASEvaluator:
             self._context_recall.ascore(
                 sample.user_input, sample.retrieved_contexts, sample.reference
             ),
+            self._context_relevance.ascore(
+                sample.user_input, sample.retrieved_contexts
+            ),
             return_exceptions=True,
         )
 
@@ -126,6 +135,7 @@ class RAGASEvaluator:
             "answer_relevancy",
             "context_precision",
             "context_recall",
+            "context_relevance",
         ]
         for i, result in enumerate(results):
             if isinstance(result, Exception):
@@ -166,6 +176,7 @@ class RAGASEvaluator:
             "answer_relevancy": 0.0,
             "context_precision": 0.0,
             "context_recall": 0.0,
+            "context_relevance": 0.0,
         }
 
         if self._llm is not None:
@@ -189,7 +200,7 @@ class RAGASEvaluator:
                         f"Faithfulness: {scores['faithfulness']:.2f}, Answer Relevancy: {scores['answer_relevancy']:.2f}"
                     )
                     print(
-                        f"Context Precision: {scores['context_precision']:.2f}, Context Recall: {scores['context_recall']:.2f}"
+                        f"Context Precision: {scores['context_precision']:.2f}, Context Recall: {scores['context_recall']:.2f}, Context Relevance: {scores['context_relevance']:.2f}"
                     )
             except Exception as e:
                 import warnings
@@ -206,6 +217,7 @@ class RAGASEvaluator:
             answer_relevancy=scores["answer_relevancy"],
             context_precision=scores["context_precision"],
             context_recall=scores["context_recall"],
+            context_relevance=scores["context_relevance"],
         )
 
     def run_batch(
@@ -242,13 +254,15 @@ class RAGASEvaluator:
         print("RAGAS EVALUATION RESULTS")
         print("=" * 80)
 
-        print(f"{'Question':<40} {'Faith':<8} {'Relev':<8} {'Prec':<8} {'Recall':<8}")
+        print(
+            f"{'Question':<40} {'Faith':<8} {'Relev':<8} {'Prec':<8} {'Recall':<8} {'CtxRel':<8}"
+        )
         print("-" * 80)
 
         for r in results:
             q = r.question[:37] + "..." if len(r.question) > 40 else r.question
             print(
-                f"{q:<40} {r.faithfulness:.2f}    {r.answer_relevancy:.2f}    {r.context_precision:.2f}    {r.context_recall:.2f}"
+                f"{q:<40} {r.faithfulness:.2f}    {r.answer_relevancy:.2f}    {r.context_precision:.2f}    {r.context_recall:.2f}    {r.context_relevance:.2f}"
             )
             print(f"  [Answer]: {r.answer[:100]}{'...' if len(r.answer) > 100 else ''}")
             if r.sources:
@@ -263,10 +277,11 @@ class RAGASEvaluator:
             avg_r = sum(r.answer_relevancy for r in results) / len(results)
             avg_p = sum(r.context_precision for r in results) / len(results)
             avg_c = sum(r.context_recall for r in results) / len(results)
+            avg_cr = sum(r.context_relevance for r in results) / len(results)
 
             print("-" * 80)
             print(
-                f"{'AVERAGE':<40} {avg_f:.2f}    {avg_r:.2f}    {avg_p:.2f}    {avg_c:.2f}"
+                f"{'AVERAGE':<40} {avg_f:.2f}    {avg_r:.2f}    {avg_p:.2f}    {avg_c:.2f}    {avg_cr:.2f}"
             )
         print("=" * 80)
 
@@ -297,6 +312,11 @@ class RAGASEvaluator:
                     if results
                     else 0
                 ),
+                "avg_context_relevance": (
+                    sum(r.context_relevance for r in results) / len(results)
+                    if results
+                    else 0
+                ),
             },
             "cases": [
                 {
@@ -310,6 +330,7 @@ class RAGASEvaluator:
                         "answer_relevancy": r.answer_relevancy,
                         "context_precision": r.context_precision,
                         "context_recall": r.context_recall,
+                        "context_relevance": r.context_relevance,
                     },
                 }
                 for r in results
