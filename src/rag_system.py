@@ -45,8 +45,8 @@ class RAGSystem:
         self.index_manager = IndexManager(self.index_dir)
 
         # Initialize reranker based on config (None if disabled)
-        if config.retrieval.use_neural_rerank:
-            self.retriever.set_rerank(NeuralRerank(model=config.retrieval.rerank_model))
+        # if config.retrieval.use_neural_rerank:
+        self.retriever.set_rerank(NeuralRerank(model=config.retrieval.rerank_model))
 
         self._indexed = False
 

@@ -27,6 +27,7 @@ class Chunk:
         """Convert to dictionary format for retriever indexing."""
         return {"text": self.text, "metadata": self.metadata}
 
+
 _langchain_splitter_cache = {}
 
 

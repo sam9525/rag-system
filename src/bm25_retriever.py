@@ -1,7 +1,7 @@
 """BM25 keyword-based retriever using rank_bm25 library."""
 
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Optional
 import json
 
 from rank_bm25 import BM25Okapi
@@ -12,7 +12,7 @@ class BM25Result:
     """Represents a BM25 search result."""
 
     chunk_index: int
-    score: float
+    score: Optional[float] = None
 
 
 class BM25RetrieverWrapper:

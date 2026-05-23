@@ -95,6 +95,7 @@ class IndexManager:
         Returns:
             Dict with 'new', 'modified', 'deleted' lists
         """
+        source_dir = Path(source_dir)  # Ensure Path type
         manifest = self.load_manifest()
         if manifest is None:
             return {"new": current_files, "modified": [], "deleted": []}
@@ -121,7 +122,9 @@ class IndexManager:
         if manifest is None:
             return False
 
-        dirty = self.detect_dirty_files(source_dir, list(manifest.files.keys()))
+        # Get actual current files from source directory (not manifest files)
+        current_files = [f.name for f in Path(source_dir).glob("*.pdf")]
+        dirty = self.detect_dirty_files(source_dir, current_files)
         return (
             len(dirty["new"]) == 0
             and len(dirty["modified"]) == 0

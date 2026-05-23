@@ -20,7 +20,7 @@ class NeuralRerank:
     Downloads model on first use (~100MB).
     """
 
-    default_model: str = "cross-encoder/ms-marco-MiniLM-L-12v2"
+    default_model: str = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 
     def __init__(self, model: Optional[str] = None, device: Optional[str] = None):
         """Initialize reranker with cross-encoder model.
