@@ -37,12 +37,20 @@ class TestEmbeddingManager:
 
     def test_inject_mock_model(self):
         """Test EmbeddingManager accepts injected model."""
+
         class MockModel:
-            def encode(self, texts, normalize_embeddings=False, show_progress_bar=False, **kwargs):
+            def encode(
+                self,
+                texts,
+                normalize_embeddings=False,
+                show_progress_bar=False,
+                **kwargs
+            ):
                 import numpy as np
+
                 if isinstance(texts, str):
-                    return np.random.rand(1, 128).astype('float32')
-                return np.random.rand(len(texts), 128).astype('float32')
+                    return np.random.rand(1, 128).astype("float32")
+                return np.random.rand(len(texts), 128).astype("float32")
 
         mock_model = MockModel()
         manager = EmbeddingManager(model=mock_model, dimension=128)
@@ -57,10 +65,18 @@ class TestEmbeddingManager:
 
     def test_embed_batch_with_mock(self):
         """Test embed_batch works with injected model."""
+
         class MockModel:
-            def encode(self, texts, normalize_embeddings=False, show_progress_bar=False, **kwargs):
+            def encode(
+                self,
+                texts,
+                normalize_embeddings=False,
+                show_progress_bar=False,
+                **kwargs
+            ):
                 import numpy as np
-                return np.random.rand(len(texts), 128).astype('float32')
+
+                return np.random.rand(len(texts), 128).astype("float32")
 
         mock_model = MockModel()
         manager = EmbeddingManager(model=mock_model, dimension=128)

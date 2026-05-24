@@ -44,6 +44,7 @@ class TestHybridRetriever:
 
     def test_inject_mock_embedding_manager(self):
         """Test HybridRetriever accepts injected embedding manager."""
+
         class MockEmbeddingManager:
             @property
             def dimension(self):
@@ -55,10 +56,12 @@ class TestHybridRetriever:
 
             def embed_text(self, text):
                 import numpy as np
+
                 return np.zeros(128)
 
             def embed_batch(self, texts, show_progress=False):
                 import numpy as np
+
                 return np.zeros((len(texts), 128))
 
         mock_emb = MockEmbeddingManager()
@@ -69,6 +72,7 @@ class TestHybridRetriever:
 
     def test_rrf_fusion_with_mock_embeddings(self):
         """Test RRF fusion logic with controlled embedding scores."""
+
         class MockEmbeddingManager:
             @property
             def dimension(self):
@@ -80,6 +84,7 @@ class TestHybridRetriever:
 
             def embed_text(self, text):
                 import numpy as np
+
                 vec = np.zeros(128)
                 if "physics" in text.lower():
                     vec[0] = 1.0
@@ -89,15 +94,25 @@ class TestHybridRetriever:
 
             def embed_batch(self, texts, show_progress=False):
                 import numpy as np
+
                 return np.array([self.embed_text(t) for t in texts])
 
         mock_emb = MockEmbeddingManager()
         retriever = HybridRetriever(embedding_manager=mock_emb, embedding_dim=128)
 
         chunks = [
-            {"text": "Physics deals with matter", "metadata": {"source": "p.pdf", "page": 1}},
-            {"text": "Chemistry is about substances", "metadata": {"source": "c.pdf", "page": 1}},
-            {"text": "Biology studies living things", "metadata": {"source": "b.pdf", "page": 1}},
+            {
+                "text": "Physics deals with matter",
+                "metadata": {"source": "p.pdf", "page": 1},
+            },
+            {
+                "text": "Chemistry is about substances",
+                "metadata": {"source": "c.pdf", "page": 1},
+            },
+            {
+                "text": "Biology studies living things",
+                "metadata": {"source": "b.pdf", "page": 1},
+            },
         ]
 
         retriever.index_documents(chunks)
@@ -109,12 +124,14 @@ class TestHybridRetriever:
 
     def test_retriever_with_mock_embedding_manager(self):
         """Test HybridRetriever works with mock EmbeddingManager."""
+
         class MockEmbeddingManager:
             dimension = 128
             model_name = "mock"
 
             def embed_text(self, text):
                 import numpy as np
+
                 vec = np.zeros(128)
                 if "physics" in text.lower():
                     vec[0] = 1.0
@@ -124,6 +141,7 @@ class TestHybridRetriever:
 
             def embed_batch(self, texts, show_progress=False):
                 import numpy as np
+
                 return np.array([self.embed_text(t) for t in texts])
 
         mock_emb = MockEmbeddingManager()
@@ -131,8 +149,14 @@ class TestHybridRetriever:
 
         # Index some chunks
         chunks = [
-            {"text": "Physics deals with matter and energy", "metadata": {"source": "p.pdf", "page": 1}},
-            {"text": "Chemistry is about substances and reactions", "metadata": {"source": "c.pdf", "page": 1}},
+            {
+                "text": "Physics deals with matter and energy",
+                "metadata": {"source": "p.pdf", "page": 1},
+            },
+            {
+                "text": "Chemistry is about substances and reactions",
+                "metadata": {"source": "c.pdf", "page": 1},
+            },
         ]
 
         retriever.index_documents(chunks)
@@ -144,14 +168,19 @@ class TestHybridRetriever:
 
     def test_auto_infer_dimension_from_manager(self):
         """Test that HybridRetriever infers dimension from injected manager."""
+
         class MockEmbeddingManager:
             dimension = 128
             model_name = "mock"
+
             def embed_text(self, text):
                 import numpy as np
+
                 return np.zeros(128)
+
             def embed_batch(self, texts, show_progress=False):
                 import numpy as np
+
                 return np.zeros((len(texts), 128))
 
         mock_emb = MockEmbeddingManager()
@@ -180,14 +209,19 @@ class TestHybridRetriever:
 
     def test_retrieval_mode_rrf(self):
         """Test retrieval with only RRF fusion (no neural reranking)."""
+
         class MockEmbeddingManager:
             dimension = 128
             model_name = "mock"
+
             def embed_text(self, text):
                 import numpy as np
+
                 return np.random.rand(128)
+
             def embed_batch(self, texts, show_progress=False):
                 import numpy as np
+
                 return np.random.rand(len(texts), 128)
 
         mock_emb = MockEmbeddingManager()
@@ -206,17 +240,22 @@ class TestHybridRetriever:
 
     def test_retrieval_mode_neural(self):
         """Test retrieval with only neural reranking (no keyword search)."""
+
         class MockEmbeddingManager:
             dimension = 128
             model_name = "mock"
+
             def embed_text(self, text):
                 import numpy as np
+
                 vec = np.zeros(128)
                 if "physics" in text.lower():
                     vec[0] = 1.0
                 return vec
+
             def embed_batch(self, texts, show_progress=False):
                 import numpy as np
+
                 return np.array([self.embed_text(t) for t in texts])
 
         mock_emb = MockEmbeddingManager()
@@ -226,13 +265,22 @@ class TestHybridRetriever:
         class MockRerank:
             def __call__(self, query, chunks, top_k):
                 from src.neural_rerank import RerankResult
-                return [RerankResult(text=chunks[0], rerank_score=1.0, original_index=0)]
+
+                return [
+                    RerankResult(text=chunks[0], rerank_score=1.0, original_index=0)
+                ]
 
         retriever.rerank = MockRerank()
 
         chunks = [
-            {"text": "Physics deals with matter", "metadata": {"source": "p.pdf", "page": 1}},
-            {"text": "Chemistry is about substances", "metadata": {"source": "c.pdf", "page": 1}},
+            {
+                "text": "Physics deals with matter",
+                "metadata": {"source": "p.pdf", "page": 1},
+            },
+            {
+                "text": "Chemistry is about substances",
+                "metadata": {"source": "c.pdf", "page": 1},
+            },
         ]
         retriever.index_documents(chunks)
 
@@ -242,17 +290,22 @@ class TestHybridRetriever:
 
     def test_retrieval_mode_hybrid(self):
         """Test hybrid mode with both RRF and neural reranking."""
+
         class MockEmbeddingManager:
             dimension = 128
             model_name = "mock"
+
             def embed_text(self, text):
                 import numpy as np
+
                 vec = np.zeros(128)
                 if "physics" in text.lower():
                     vec[0] = 1.0
                 return vec
+
             def embed_batch(self, texts, show_progress=False):
                 import numpy as np
+
                 return np.array([self.embed_text(t) for t in texts])
 
         mock_emb = MockEmbeddingManager()
@@ -262,13 +315,22 @@ class TestHybridRetriever:
         class MockRerank:
             def __call__(self, query, chunks, top_k):
                 from src.neural_rerank import RerankResult
-                return [RerankResult(text=chunks[0], rerank_score=1.0, original_index=0)]
+
+                return [
+                    RerankResult(text=chunks[0], rerank_score=1.0, original_index=0)
+                ]
 
         retriever.rerank = MockRerank()
 
         chunks = [
-            {"text": "Physics deals with matter", "metadata": {"source": "p.pdf", "page": 1}},
-            {"text": "Chemistry is about substances", "metadata": {"source": "c.pdf", "page": 1}},
+            {
+                "text": "Physics deals with matter",
+                "metadata": {"source": "p.pdf", "page": 1},
+            },
+            {
+                "text": "Chemistry is about substances",
+                "metadata": {"source": "c.pdf", "page": 1},
+            },
         ]
         retriever.index_documents(chunks)
 

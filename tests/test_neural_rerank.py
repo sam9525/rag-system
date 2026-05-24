@@ -17,6 +17,7 @@ class TestNeuralRerank:
     def test_rerank_with_insufficient_chunks(self):
         # Test with actual model (requires network/download)
         import pytest
+
         pytest.skip("Requires model download - tested manually")
 
 

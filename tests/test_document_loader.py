@@ -23,7 +23,7 @@ class TestDocumentLoader:
         """Test Document dataclass."""
         doc = Document(
             page_content="Sample text",
-            metadata={"source": "test.pdf", "page": 1, "section": "Test"}
+            metadata={"source": "test.pdf", "page": 1, "section": "Test"},
         )
         assert doc.page_content == "Sample text"
         assert doc.metadata["source"] == "test.pdf"

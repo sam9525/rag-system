@@ -33,8 +33,20 @@ class TestRAGSystem:
         """Test chunk_transformer extracts required fields for generator."""
         system = RAGSystem()
         retrieved_chunks = [
-            RRFResult(text="doc1", score=0.9, metadata={"source": "a.pdf", "page": 1}, semantic_score=0.9, keyword_score=None),
-            RRFResult(text="doc2", score=0.8, metadata={"source": "b.pdf", "page": 2}, semantic_score=0.8, keyword_score=None),
+            RRFResult(
+                text="doc1",
+                score=0.9,
+                metadata={"source": "a.pdf", "page": 1},
+                semantic_score=0.9,
+                keyword_score=None,
+            ),
+            RRFResult(
+                text="doc2",
+                score=0.8,
+                metadata={"source": "b.pdf", "page": 2},
+                semantic_score=0.8,
+                keyword_score=None,
+            ),
         ]
 
         result = system._transform_chunks_for_generator(retrieved_chunks)
@@ -48,7 +60,13 @@ class TestRAGSystem:
         """Test source_formatter extracts fields for display."""
         system = RAGSystem()
         retrieved_chunks = [
-            RRFResult(text="doc1 text", score=0.9, metadata={"source": "a.pdf", "page": 1, "section": "Intro"}, semantic_score=0.9, keyword_score=None),
+            RRFResult(
+                text="doc1 text",
+                score=0.9,
+                metadata={"source": "a.pdf", "page": 1, "section": "Intro"},
+                semantic_score=0.9,
+                keyword_score=None,
+            ),
         ]
 
         result = system._format_sources(retrieved_chunks)
@@ -63,11 +81,7 @@ class TestRAGSystem:
         """Test Chunk can be imported from src.chunk."""
         from src.chunk import Chunk
 
-        chunk = Chunk(
-            text="test content",
-            metadata={"source": "test.pdf"},
-            chunk_id=0
-        )
+        chunk = Chunk(text="test content", metadata={"source": "test.pdf"}, chunk_id=0)
         assert chunk.text == "test content"
         assert chunk.metadata["source"] == "test.pdf"
 

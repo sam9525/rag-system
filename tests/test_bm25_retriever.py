@@ -12,9 +12,18 @@ class TestBM25RetrieverWrapper:
         retriever = BM25RetrieverWrapper()
 
         chunks = [
-            {"text": "Python programming guide", "metadata": {"source": "python.pdf", "page": 1}},
-            {"text": "JavaScript tutorial", "metadata": {"source": "js.pdf", "page": 5}},
-            {"text": "Machine learning basics", "metadata": {"source": "ml.pdf", "page": 10}},
+            {
+                "text": "Python programming guide",
+                "metadata": {"source": "python.pdf", "page": 1},
+            },
+            {
+                "text": "JavaScript tutorial",
+                "metadata": {"source": "js.pdf", "page": 5},
+            },
+            {
+                "text": "Machine learning basics",
+                "metadata": {"source": "ml.pdf", "page": 10},
+            },
         ]
 
         retriever.index_documents_from_chunks(chunks)
@@ -25,17 +34,26 @@ class TestBM25RetrieverWrapper:
 
         assert len(results) <= 2
         # Results now return (chunk_index, score), not full chunks
-        assert all(hasattr(r, 'chunk_index') for r in results)
-        assert all(hasattr(r, 'score') for r in results)
+        assert all(hasattr(r, "chunk_index") for r in results)
+        assert all(hasattr(r, "score") for r in results)
 
     def test_search_returns_ranked_results(self):
         """Test search returns ranked results with chunk indices."""
         retriever = BM25RetrieverWrapper()
 
         chunks = [
-            {"text": "Python programming guide", "metadata": {"source": "python.pdf", "page": 1}},
-            {"text": "JavaScript tutorial", "metadata": {"source": "js.pdf", "page": 5}},
-            {"text": "Machine learning basics", "metadata": {"source": "ml.pdf", "page": 10}},
+            {
+                "text": "Python programming guide",
+                "metadata": {"source": "python.pdf", "page": 1},
+            },
+            {
+                "text": "JavaScript tutorial",
+                "metadata": {"source": "js.pdf", "page": 5},
+            },
+            {
+                "text": "Machine learning basics",
+                "metadata": {"source": "ml.pdf", "page": 10},
+            },
         ]
 
         retriever.index_documents_from_chunks(chunks)
@@ -57,8 +75,14 @@ class TestBM25RetrieverWrapper:
         retriever = BM25RetrieverWrapper()
 
         chunks = [
-            {"text": "Python programming guide", "metadata": {"source": "python.pdf", "page": 1}},
-            {"text": "JavaScript tutorial", "metadata": {"source": "js.pdf", "page": 5}},
+            {
+                "text": "Python programming guide",
+                "metadata": {"source": "python.pdf", "page": 1},
+            },
+            {
+                "text": "JavaScript tutorial",
+                "metadata": {"source": "js.pdf", "page": 5},
+            },
         ]
 
         retriever.index_documents_from_chunks(chunks)

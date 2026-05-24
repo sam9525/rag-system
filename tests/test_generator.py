@@ -18,8 +18,16 @@ class TestOllamaGenerator:
         generator = OllamaGenerator()
 
         chunks = [
-            {"text": "First chunk", "score": 0.9, "metadata": {"source": "doc1.pdf", "page": 1}},
-            {"text": "Second chunk", "score": 0.8, "metadata": {"source": "doc2.pdf", "page": 2}},
+            {
+                "text": "First chunk",
+                "score": 0.9,
+                "metadata": {"source": "doc1.pdf", "page": 1},
+            },
+            {
+                "text": "Second chunk",
+                "score": 0.8,
+                "metadata": {"source": "doc2.pdf", "page": 2},
+            },
         ]
 
         prompt = generator._build_prompt("Test question?", chunks)
@@ -34,7 +42,13 @@ class TestOllamaGenerator:
     def test_generate_requires_ollama_running(self):
         """Test generate fails gracefully if Ollama not running."""
         generator = OllamaGenerator()
-        chunks = [{"text": "test", "score": 0.9, "metadata": {"source": "test.pdf", "page": 1}}]
+        chunks = [
+            {
+                "text": "test",
+                "score": 0.9,
+                "metadata": {"source": "test.pdf", "page": 1},
+            }
+        ]
         # This will fail if Ollama not running - test error handling
         try:
             response = generator.generate("test", chunks)
@@ -60,7 +74,13 @@ class TestOllamaGenerator:
         # Mock unavailable state
         generator._check_connection = lambda: False
 
-        chunks = [{"text": "test", "score": 0.9, "metadata": {"source": "test.pdf", "page": 1}}]
+        chunks = [
+            {
+                "text": "test",
+                "score": 0.9,
+                "metadata": {"source": "test.pdf", "page": 1},
+            }
+        ]
 
         with pytest.raises(OllamaConnectionError):
             generator.generate("test question", chunks)
@@ -69,7 +89,9 @@ class TestOllamaGenerator:
         """Test that refused connection raises OllamaConnectionError."""
         generator = OllamaGenerator(base_url="http://localhost:19999")
 
-        chunks = [{"text": "test", "score": 0.9, "metadata": {"source": "t.pdf", "page": 1}}]
+        chunks = [
+            {"text": "test", "score": 0.9, "metadata": {"source": "t.pdf", "page": 1}}
+        ]
 
         with pytest.raises(OllamaConnectionError):
             generator.generate("test", chunks)
@@ -79,8 +101,16 @@ class TestOllamaGenerator:
         generator = OllamaGenerator()
 
         chunks = [
-            {"text": "First chunk content", "score": 0.9, "metadata": {"source": "doc1.pdf", "page": 5}},
-            {"text": "Second chunk content", "score": 0.8, "metadata": {"source": "doc2.pdf", "page": 10}},
+            {
+                "text": "First chunk content",
+                "score": 0.9,
+                "metadata": {"source": "doc1.pdf", "page": 5},
+            },
+            {
+                "text": "Second chunk content",
+                "score": 0.8,
+                "metadata": {"source": "doc2.pdf", "page": 10},
+            },
         ]
 
         prompt = generator._build_prompt("Test question?", chunks)
