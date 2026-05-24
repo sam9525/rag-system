@@ -6,4 +6,11 @@ __pycache__
 sources/
 .rag_index
 rag_standalone.ipynb
-eval_results.json
+test_case_truth.py
+
+eval_results_rrf.json
+eval_results_neural.json
+eval_results_hybrid.json
+
+# claude
+CLAUDE.md
