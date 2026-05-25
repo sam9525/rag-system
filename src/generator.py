@@ -1,6 +1,6 @@
 """Ollama-based generator using gemma4."""
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 import requests
 
 from src.config import config as global_config
@@ -93,7 +93,9 @@ ANSWER:"""
 
         return prompt
 
-    def generate(self, question: str, chunks: List[Dict]) -> str:
+    def generate(
+        self, question: str, chunks: List[Dict], rag: Optional[bool] = True
+    ) -> str:
         """Generate response using Ollama.
 
         Args:
@@ -114,7 +116,7 @@ ANSWER:"""
                 "Please ensure Ollama is running (ollama serve)."
             )
 
-        prompt = self._build_prompt(question, chunks)
+        prompt = self._build_prompt(question, chunks) if rag else question
 
         try:
             response = requests.post(
@@ -122,7 +124,7 @@ ANSWER:"""
                 json={
                     "model": self.config.model,
                     "prompt": prompt,
-                    "system": self.SYSTEM_PROMPT,
+                    "system": self.SYSTEM_PROMPT if rag else "",
                     "temperature": self.config.temperature,
                     "max_tokens": self.config.max_tokens,
                     "stream": self.config.stream,

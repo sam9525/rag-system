@@ -8,9 +8,14 @@ sources/
 rag_standalone.ipynb
 test_case_truth.py
 
+# Evaluation
 eval_results_rrf.json
 eval_results_neural.json
 eval_results_hybrid.json
+baseline_results.json
+
+eval_comparison.png
+rag_vs_baseline.png
 
 # claude
 CLAUDE.md

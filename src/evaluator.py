@@ -215,6 +215,110 @@ class RAGASEvaluator:
         """Run evaluation on test cases (alias for run_batch)."""
         return self.run_batch(cases, verbose)
 
+    def query_baseline(self, question: str) -> str:
+        """Generate answer WITHOUT retrieval - pure model knowledge.
+
+        This simulates asking the LLM without any RAG context,
+        allowing comparison between grounded vs ungrounded answers.
+
+        Args:
+            question: User's question
+
+        Returns:
+            Generated response with NO context chunks provided
+        """
+        try:
+            # Pass empty chunks - model should either say it lacks info
+            # or generate from training knowledge (depending on system prompt behavior)
+            return self.rag.generator.generate(question, chunks=[], rag=False)
+        except Exception as e:
+            return f"Error generating baseline: {e}"
+
+    def run_baseline_case(self, case: EvalCase, verbose: bool = False) -> EvalResult:
+        """Run baseline evaluation on a single test case (no retrieval).
+
+        Args:
+            case: EvalCase to evaluate.
+            verbose: If True, print intermediate results.
+
+        Returns:
+            EvalResult with baseline scores (no retrieval).
+        """
+        # Get baseline response (no retrieval)
+        answer = self.query_baseline(case.question)
+
+        # Empty contexts for baseline
+        contexts = []
+
+        if verbose:
+            print(f"[Baseline] Question: {case.question}")
+            print(f"[Baseline] Answer: {answer[:100]}...")
+
+        scores = {
+            "faithfulness": 0.0,
+            "answer_relevancy": 0.0,
+            "context_relevance": 0.0,
+        }
+
+        if self._llm is not None:
+            try:
+                sample = SingleTurnSample(
+                    user_input=case.question,
+                    response=answer,
+                    retrieved_contexts=contexts,
+                )
+
+                import nest_asyncio
+
+                nest_asyncio.apply()
+
+                asyncio.run(self._score_sample(sample, scores))
+
+                if verbose:
+                    print(
+                        f"[Baseline] Faithfulness: {scores['faithfulness']:.2f}, "
+                        f"Answer Relevancy: {scores['answer_relevancy']:.2f}, "
+                        f"Context Relevance: {scores['context_relevance']:.2f}"
+                    )
+            except Exception as e:
+                import warnings
+
+                warnings.warn(f"RAGAS evaluation failed for baseline: {e}")
+
+        return EvalResult(
+            question=case.question,
+            answer=answer,
+            contexts=contexts,
+            sources=[],
+            faithfulness=scores["faithfulness"],
+            answer_relevancy=scores["answer_relevancy"],
+            context_relevance=scores["context_relevance"],
+        )
+
+    def run_baseline_batch(
+        self, cases: List[EvalCase], verbose: bool = False
+    ) -> List[EvalResult]:
+        """Run baseline evaluation on multiple test cases (no retrieval).
+
+        Args:
+            cases: List of EvalCase to evaluate.
+            verbose: If True, print per-case results.
+
+        Returns:
+            List of EvalResult for each baseline case.
+        """
+        print(
+            f"[Baseline] Starting baseline evaluation of {len(cases)} cases (no retrieval)..."
+        )
+        results = []
+        for i, case in enumerate(cases, 1):
+            print(f"[Baseline] [{i}/{len(cases)}] Processing case...")
+            result = self.run_baseline_case(case, verbose=verbose)
+            results.append(result)
+            print(f"[Baseline] [{i}/{len(cases)}] Case complete")
+        print(f"[Baseline] Batch evaluation complete: {len(results)} results")
+        return results
+
     def print_results(self, results: List[EvalResult]):
         """Print evaluation results as a summary table."""
         print("\n" + "=" * 80)
