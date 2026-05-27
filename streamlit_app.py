@@ -75,6 +75,14 @@ def init_session_state():
         st.session_state.model_index = DEFAULT_MODEL_INDEX
     if "temperature" not in st.session_state:
         st.session_state.temperature = 0.3
+    if "current_query_result" not in st.session_state:
+        st.session_state.current_query_result = None
+    if "show_eval_panel" not in st.session_state:
+        st.session_state.show_eval_panel = False
+    if "eval_result" not in st.session_state:
+        st.session_state.eval_result = None
+    if "eval_error" not in st.session_state:
+        st.session_state.eval_error = None
 
 
 def sidebar_config():
@@ -111,7 +119,7 @@ def sidebar_config():
             help="Lower = more focused, Higher = more creative",
         )
 
-# Update config only when settings change
+        # Update config only when settings change
         if (
             model_index != st.session_state.model_index
             or abs(temperature - st.session_state.temperature) > 0.05
