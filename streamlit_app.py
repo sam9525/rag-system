@@ -76,10 +76,6 @@ def init_session_state():
         st.session_state.model_index = DEFAULT_MODEL_INDEX
     if "temperature" not in st.session_state:
         st.session_state.temperature = 0.3
-    if "current_query_result" not in st.session_state:
-        st.session_state.current_query_result = None
-    if "show_eval_panel" not in st.session_state:
-        st.session_state.show_eval_panel = False
     if "eval_result" not in st.session_state:
         st.session_state.eval_result = None
     if "eval_error" not in st.session_state:
@@ -156,39 +152,25 @@ def render_sources(sources, show_citations=True):
             st.divider()
 
 
-def eval_panel():
-    """Render evaluation panel in right sidebar."""
-    with st.sidebar:
-        st.subheader("Evaluation Scores")
+def render_eval_scores():
+    """Render evaluation scores inline (like sources)."""
+    eval_result = st.session_state.eval_result
+    eval_error = st.session_state.eval_error
 
-        if st.session_state.eval_error:
-            st.error(st.session_state.eval_error)
-            st.divider()
-            if st.button("Close Panel"):
-                st.session_state.show_eval_panel = False
-                st.rerun()
-            return
+    if eval_error:
+        with st.expander("📊 Evaluation Scores"):
+            st.error(eval_error)
+        return
 
-        if st.session_state.eval_result:
-            result = st.session_state.eval_result
-            st.success("Evaluation complete")
-
+    if eval_result:
+        with st.expander("📊 Evaluation Scores"):
             col1, col2 = st.columns(2)
             with col1:
-                st.metric("Faithfulness", f"{result.faithfulness:.2f}")
+                st.metric("Faithfulness", f"{eval_result.faithfulness:.2f}")
             with col2:
-                st.metric("Answer Relevancy", f"{result.answer_relevancy:.2f}")
+                st.metric("Answer Relevancy", f"{eval_result.answer_relevancy:.2f}")
 
-            st.metric("Context Relevance", f"{result.context_relevance:.2f}")
-
-            st.divider()
-
-            if st.button("Close Panel"):
-                st.session_state.show_eval_panel = False
-                st.rerun()
-        else:
-            # Scores pre-calculated with response
-            st.info("No evaluation available")
+            st.metric("Context Relevance", f"{eval_result.context_relevance:.2f}")
 
 
 def main():
@@ -245,11 +227,7 @@ def main():
                 try:
                     result = st.session_state.rag_system.query(prompt)
 
-                    # Store current result for evaluation
-                    st.session_state.current_query_result = result
-                    st.session_state.show_eval_panel = False  # Reset panel state
-
-                    # Pre-calculate evaluation (runs in background)
+                    # Pre-calculate evaluation
                     with st.spinner("Evaluating response..."):
                         try:
                             evaluator = RAGASEvaluator(
@@ -275,13 +253,8 @@ def main():
 
                         render_sources(result.sources)
 
-                        # Evaluation button - scores pre-calculated
-                        if st.button(
-                            "Show Evaluate Score",
-                            key=f"eval_btn_{len(st.session_state.messages)}",
-                        ):
-                            st.session_state.show_eval_panel = True
-                            st.rerun()
+                        # Show evaluation scores inline
+                        render_eval_scores()
 
                     st.session_state.messages.append(
                         {"role": "assistant", "content": result.answer}
@@ -308,10 +281,6 @@ def main():
                             render_sources(retrieved, show_citations=True)
                     except Exception:
                         st.warning("Retrieval also failed.")
-
-    # Show eval panel if enabled
-    if st.session_state.show_eval_panel:
-        eval_panel()
 
 
 if __name__ == "__main__":
