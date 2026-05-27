@@ -3,16 +3,16 @@
 from typing import Optional
 from pathlib import Path
 
-from src.config import RetrievalConfig, EmbeddingConfig
-from src.embeddings import EmbeddingManager
-from src.neural_rerank import NeuralRerank, RerankResult
-from src.search_result import SearchResult
-from src.chunk_store import ChunkStore
-from src.retrieval_engine import RetrievalEngine, FusionStrategy
-from src.semantic_search import SemanticSearch
-from src.keyword_search import KeywordSearch
-from src.fusion import RRFFusion
-from src.rrf_fusion import RRFResult
+from src.retrieval.search_result import SearchResult
+from src.retrieval.semantic_search import SemanticSearch
+from src.retrieval.keyword_search import KeywordSearch
+from src.retrieval.fusion import RRFFusion
+from src.retrieval.embeddings import EmbeddingManager
+from src.retrieval.vector_store import VectorStore
+from src.retrieval.neural_rerank import NeuralRerank, RerankResult
+from src.retrieval.rrf_fusion import RRFResult
+from src.storage.chunk_store import ChunkStore
+from src.system.config import RetrievalConfig
 
 
 class HybridRetriever:

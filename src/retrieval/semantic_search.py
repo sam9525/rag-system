@@ -1,10 +1,10 @@
 """Semantic search using FAISS and embeddings."""
 
-from src.embeddings import EmbeddingManager
-from src.vector_store import VectorStore
-from src.search_result import SearchResult
-from src.chunk_store import ChunkStore
-from src.retrieval_engine import RetrievalEngine
+from src.retrieval.embeddings import EmbeddingManager
+from src.retrieval.vector_store import VectorStore
+from src.retrieval.search_result import SearchResult
+from src.storage.chunk_store import ChunkStore
+from src.retrieval.retrieval_engine import RetrievalEngine
 
 
 class SemanticSearch(RetrievalEngine):

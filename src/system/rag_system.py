@@ -5,15 +5,19 @@ from dataclasses import dataclass
 from typing import List, Dict, Optional
 from pathlib import Path
 
-from src.config import RAGConfig
-from src.document_loader import DocumentLoader
-from src.chunker import create_chunks, Chunk
-from src.hybrid_retriever import HybridRetriever
-from src.chunk_store import ChunkStore
-from src.rrf_fusion import RRFResult
-from src.generator import OllamaGenerator, OllamaConnectionError, OllamaAPIError
-from src.index_manager import IndexManager, IndexManifest
-from src.neural_rerank import NeuralRerank
+from src.system.config import RAGConfig
+from src.ingestion.document_loader import DocumentLoader
+from src.ingestion.chunker import create_chunks, Chunk
+from src.retrieval.hybrid_retriever import HybridRetriever
+from src.retrieval.rrf_fusion import RRFResult
+from src.storage.chunk_store import ChunkStore
+from src.generation.generator import (
+    OllamaGenerator,
+    OllamaConnectionError,
+    OllamaAPIError,
+)
+from src.storage.index_manager import IndexManager, IndexManifest
+from src.retrieval.neural_rerank import NeuralRerank
 
 
 @dataclass
@@ -56,10 +60,11 @@ class RAGSystem:
         self.generator = OllamaGenerator(config=self._config.generation)
         self.index_manager = IndexManager(self.index_dir)
 
-        # Initialize reranker based on config
-        self.retriever.set_rerank(
-            NeuralRerank(model=self._config.retrieval.rerank_model)
-        )
+        # Initialize reranker only if enabled in config
+        if self._config.retrieval.use_neural_rerank:
+            self.retriever.set_rerank(
+                NeuralRerank(model=self._config.retrieval.rerank_model)
+            )
 
         self._indexed = False
 

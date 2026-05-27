@@ -1,7 +1,7 @@
 """Interfaces for retrieval engines and fusion strategies."""
 
 from typing import Protocol
-from src.search_result import SearchResult
+from src.retrieval.search_result import SearchResult
 
 
 class RetrievalEngine(Protocol):

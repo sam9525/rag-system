@@ -1,7 +1,7 @@
 """Tests for BM25 retriever with index-based storage."""
 
 import pytest
-from src.bm25_retriever import BM25RetrieverWrapper, BM25Result
+from src.retrieval.bm25_retriever import BM25RetrieverWrapper, BM25Result
 
 
 class TestBM25RetrieverWrapper:

@@ -1,6 +1,6 @@
 """Tests for EvalCase dataclass."""
 
-from src.test_case import EvalCase
+from src.evaluation.test_case import EvalCase
 
 
 def test_eval_case_creation():

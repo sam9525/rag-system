@@ -2,8 +2,8 @@
 
 import pytest
 import numpy as np
-from src.hybrid_retriever import HybridRetriever
-from src.rrf_fusion import RRFResult, rrf_fusion
+from src.retrieval.hybrid_retriever import HybridRetriever
+from src.retrieval.rrf_fusion import RRFResult, rrf_fusion
 
 
 class TestHybridRetriever:
@@ -266,7 +266,7 @@ class TestHybridRetriever:
         # Set up mock reranker
         class MockRerank:
             def __call__(self, query, chunks, top_k):
-                from src.neural_rerank import RerankResult
+                from src.retrieval.neural_rerank import RerankResult
 
                 return [
                     RerankResult(text=chunks[0], rerank_score=1.0, original_index=0)
@@ -316,7 +316,7 @@ class TestHybridRetriever:
         # Set up mock reranker
         class MockRerank:
             def __call__(self, query, chunks, top_k):
-                from src.neural_rerank import RerankResult
+                from src.retrieval.neural_rerank import RerankResult
 
                 return [
                     RerankResult(text=chunks[0], rerank_score=1.0, original_index=0)

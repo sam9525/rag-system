@@ -1,8 +1,12 @@
 """Tests for generator module."""
 
 import pytest
-from src.generator import OllamaGenerator, OllamaConnectionError, OllamaAPIError
-from src.ollama_client import OllamaClient
+from src.generation.generator import (
+    OllamaGenerator,
+    OllamaConnectionError,
+    OllamaAPIError,
+)
+from src.generation.ollama_client import OllamaClient
 
 
 class MockOllamaClient:
@@ -120,7 +124,7 @@ class TestOllamaGenerator:
 
     def test_generator_uses_injected_client(self):
         """Test generator uses the injected client instead of making live requests."""
-        from src.config import GenerationConfig
+        from src.system.config import GenerationConfig
 
         mock = MockOllamaClient(available=True, response="test output")
         config = GenerationConfig()
@@ -140,7 +144,7 @@ class TestOllamaGenerator:
 
     def test_generate_raises_when_client_unavailable(self):
         """Test generate raises OllamaConnectionError when client reports unavailable."""
-        from src.config import GenerationConfig
+        from src.system.config import GenerationConfig
 
         mock = MockOllamaClient(available=False)
         config = GenerationConfig()

@@ -4,7 +4,7 @@ import pytest
 import tempfile
 import hashlib
 from pathlib import Path
-from src.index_manager import IndexManager, IndexManifest
+from src.storage.index_manager import IndexManager, IndexManifest
 
 
 class TestIndexManifest:

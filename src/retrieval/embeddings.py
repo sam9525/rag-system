@@ -5,7 +5,7 @@ import numpy as np
 
 from sentence_transformers import SentenceTransformer
 
-from src.config import EmbeddingConfig
+from src.system.config import EmbeddingConfig
 
 
 class EmbeddingManager:

@@ -6,7 +6,7 @@ from typing import Dict, Any, List
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
-from src.config import ChunkingConfig
+from src.system.config import ChunkingConfig
 
 
 @dataclass

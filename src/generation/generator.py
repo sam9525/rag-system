@@ -3,8 +3,8 @@
 from typing import List, Dict, Optional
 import requests
 
-from src.config import GenerationConfig
-from src.ollama_client import OllamaClient, RequestsOllamaClient
+from src.system.config import GenerationConfig
+from src.generation.ollama_client import OllamaClient, RequestsOllamaClient
 
 
 class OllamaConnectionError(Exception):

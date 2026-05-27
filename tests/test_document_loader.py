@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 import tempfile
-from src.document_loader import DocumentLoader, Document
+from src.ingestion.document_loader import DocumentLoader, Document
 
 
 class TestDocumentLoader:

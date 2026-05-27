@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from src.vector_store import VectorStore
+from src.retrieval.vector_store import VectorStore
 
 
 class TestVectorStore:

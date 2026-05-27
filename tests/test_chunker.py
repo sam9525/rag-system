@@ -1,7 +1,7 @@
 """Tests for chunker using langchain RecursiveCharacterTextSplitter."""
 
 import pytest
-from src.chunker import create_chunks, Chunk
+from src.ingestion.chunker import create_chunks, Chunk
 
 
 class TestCreateChunks:
@@ -25,7 +25,7 @@ class TestCreateChunks:
 
     def test_create_chunks_respects_max_size(self):
         """Test that chunks respect max_chunk_size when text can be split."""
-        from src.config import ChunkingConfig
+        from src.system.config import ChunkingConfig
 
         chunk_config = ChunkingConfig(
             min_chunk_size=50, max_chunk_size=100, overlap_size=20
@@ -46,7 +46,7 @@ class TestCreateChunks:
 
     def test_create_chunks_has_overlap(self):
         """Test that adjacent chunks have overlap content."""
-        from src.config import ChunkingConfig
+        from src.system.config import ChunkingConfig
 
         chunk_config = ChunkingConfig(
             min_chunk_size=50, max_chunk_size=100, overlap_size=30
@@ -65,7 +65,7 @@ class TestCreateChunks:
 
 def test_chunking_config_has_separators():
     """Test that ChunkingConfig supports custom separators."""
-    from src.config import ChunkingConfig
+    from src.system.config import ChunkingConfig
 
     config = ChunkingConfig(
         min_chunk_size=100,
@@ -78,7 +78,7 @@ def test_chunking_config_has_separators():
 
 def test_create_chunks_with_custom_separators():
     """Test that custom separators are respected."""
-    from src.config import ChunkingConfig
+    from src.system.config import ChunkingConfig
 
     # Custom separators that split at h2 headings with smaller chunk size
     chunk_config = ChunkingConfig(

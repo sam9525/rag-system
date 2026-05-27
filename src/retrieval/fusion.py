@@ -1,7 +1,7 @@
 """Fusion strategies for combining retrieval results."""
 
-from src.search_result import SearchResult
-from src.retrieval_engine import FusionStrategy
+from src.retrieval.search_result import SearchResult
+from src.retrieval.retrieval_engine import FusionStrategy
 
 
 class RRFFusion(FusionStrategy):

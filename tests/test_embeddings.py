@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from src.embeddings import EmbeddingManager
+from src.retrieval.embeddings import EmbeddingManager
 
 
 class TestEmbeddingManager:
@@ -31,9 +31,12 @@ class TestEmbeddingManager:
     def test_instruction_prefix_applied(self):
         """Test instruction prefix is used in embedding."""
         manager = EmbeddingManager()
-        text = "test query"
-        # Should include instruction prefix
-        assert manager.config.instruction_prefix in str(text) or True
+        # Verify the instruction prefix is configured (it gets prepended during embedding)
+        # The prefix is stored in _embedding_config.instruction_prefix
+        from src.system.config import EmbeddingConfig
+
+        default_config = EmbeddingConfig()
+        assert len(default_config.instruction_prefix) > 0
 
     def test_inject_mock_model(self):
         """Test EmbeddingManager accepts injected model."""

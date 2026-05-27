@@ -9,8 +9,8 @@ import sys
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.rag_system import RAGSystem
-from src.config import RAGConfig
+from src.system.rag_system import RAGSystem
+from src.system.config import RAGConfig
 
 # Module-level config instance
 _rag_config = RAGConfig()

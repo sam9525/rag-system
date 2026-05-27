@@ -2,8 +2,8 @@
 
 import pytest
 from unittest.mock import MagicMock
-from src.evaluator import RAGASEvaluator, EvalResult
-from src.test_case import EvalCase
+from src.evaluation.evaluator import RAGASEvaluator, EvalResult
+from src.evaluation.test_case import EvalCase
 
 
 @pytest.fixture

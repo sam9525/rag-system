@@ -6,8 +6,8 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List
 
-from src.test_case import EvalCase
-from src.config import EvalLLMConfig
+from src.evaluation.test_case import EvalCase
+from src.system.config import EvalLLMConfig
 
 from ragas.llms import llm_factory
 from ragas.metrics.collections import (

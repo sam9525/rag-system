@@ -3,7 +3,7 @@
 import pytest
 import tempfile
 from pathlib import Path
-from src.chunk_store import ChunkStore
+from src.storage.chunk_store import ChunkStore
 
 
 class TestChunkStore:

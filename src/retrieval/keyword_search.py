@@ -1,9 +1,9 @@
 """Keyword search using BM25."""
 
-from src.bm25_retriever import BM25RetrieverWrapper
-from src.search_result import SearchResult
-from src.chunk_store import ChunkStore
-from src.retrieval_engine import RetrievalEngine
+from src.retrieval.bm25_retriever import BM25RetrieverWrapper
+from src.retrieval.search_result import SearchResult
+from src.storage.chunk_store import ChunkStore
+from src.retrieval.retrieval_engine import RetrievalEngine
 
 
 class KeywordSearch(RetrievalEngine):

@@ -1,12 +1,12 @@
 import pytest
-from src.neural_rerank import NeuralRerank, RerankResult
+from src.retrieval.neural_rerank import NeuralRerank, RerankResult
 
 
 class TestNeuralRerank:
     def test_rerank_initialization(self):
         rerank = NeuralRerank()
-        assert rerank.model_name == "cross-encoder/ms-marco-MiniLM-L-12v2"
-        assert rerank.default_model == "cross-encoder/ms-marco-MiniLM-L-12v2"
+        assert rerank.model_name == "cross-encoder/ms-marco-MiniLM-L-12-v2"
+        assert rerank.default_model == "cross-encoder/ms-marco-MiniLM-L-12-v2"
 
     def test_rerank_empty_chunks(self):
         rerank = NeuralRerank()
@@ -30,22 +30,23 @@ class TestRerankResult:
 
 
 def test_config_has_reranking_options():
-    from src.config import config
+    from src.system.config import RetrievalConfig
 
-    assert hasattr(config.retrieval, "use_neural_rerank")
-    assert hasattr(config.retrieval, "rerank_model")
-    assert hasattr(config.retrieval, "rerank_top_k")
+    config = RetrievalConfig()
+    assert hasattr(config, "use_neural_rerank")
+    assert hasattr(config, "rerank_model")
+    assert hasattr(config, "rerank_top_k")
 
 
 def test_hybrid_retriever_rerank_is_none_by_default():
-    from src.hybrid_retriever import HybridRetriever
+    from src.retrieval.hybrid_retriever import HybridRetriever
 
     retriever = HybridRetriever()
     assert retriever.rerank is None
 
 
 def test_hybrid_retriever_with_rerank():
-    from src.hybrid_retriever import HybridRetriever
+    from src.retrieval.hybrid_retriever import HybridRetriever
 
     retriever = HybridRetriever()
     rerank = NeuralRerank()
@@ -56,24 +57,23 @@ def test_hybrid_retriever_with_rerank():
 
 
 def test_rag_system_rerank_disabled_by_default():
-    from src.config import config
-    from src.rag_system import RAGSystem
+    from src.system.config import RAGConfig
+    from src.system.rag_system import RAGSystem
 
+    config = RAGConfig()
     config.retrieval.use_neural_rerank = False
-    rag = RAGSystem(source_dir=None)
+    rag = RAGSystem(config=config)
     assert rag.retriever.rerank is None
 
 
 def test_rag_system_rerank_enabled_via_config():
-    from src.config import config
-    from src.rag_system import RAGSystem
+    from src.system.config import RAGConfig
+    from src.system.rag_system import RAGSystem
 
+    config = RAGConfig()
     config.retrieval.use_neural_rerank = True
-    config.retrieval.rerank_model = "cross-encoder/ms-marco-MiniLM-L-12v2"
+    config.retrieval.rerank_model = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 
-    rag = RAGSystem(source_dir=None)
+    rag = RAGSystem(config=config)
     assert rag.retriever.rerank is not None
     assert isinstance(rag.retriever.rerank, NeuralRerank)
-
-    # Reset config
-    config.retrieval.use_neural_rerank = False

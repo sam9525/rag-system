@@ -1,5 +1,5 @@
 import pytest
-from src.rrf_fusion import rrf_fusion, RRFResult
+from src.retrieval.rrf_fusion import rrf_fusion, RRFResult
 
 
 class TestRRFFusion:

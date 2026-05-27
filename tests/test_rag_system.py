@@ -2,8 +2,8 @@
 
 import pytest
 from pathlib import Path
-from src.rag_system import RAGSystem, RAGQueryResult
-from src.hybrid_retriever import RRFResult
+from src.system.rag_system import RAGSystem, RAGQueryResult
+from src.retrieval.rrf_fusion import RRFResult
 
 
 class TestRAGSystem:
@@ -78,7 +78,7 @@ class TestRAGSystem:
 
     def test_import_chunk_from_chunker(self):
         """Test Chunk can be imported from src.chunker."""
-        from src.chunker import Chunk
+        from src.ingestion.chunker import Chunk
 
         chunk = Chunk(text="test content", metadata={"source": "test.pdf"}, chunk_id=0)
         assert chunk.text == "test content"
@@ -86,7 +86,7 @@ class TestRAGSystem:
 
     def test_ingest_accepts_chunk_type(self):
         """Test ingest_documents works with Chunk type."""
-        from src.chunker import Chunk
+        from src.ingestion.chunker import Chunk
 
         system = RAGSystem(source_dir=Path("sources"))
         chunks = [
