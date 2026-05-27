@@ -116,7 +116,8 @@ class TestHybridRetriever:
         ]
 
         retriever.index_documents(chunks)
-        results = retriever.search("physics research", final_top_k=2)
+        # Use rrf mode to avoid needing a reranker
+        results = retriever.search("physics research", final_top_k=2, rerank_mode="rrf")
 
         # "physics" embedding should match physics chunk
         assert results[0].text.startswith("Physics")
@@ -160,7 +161,8 @@ class TestHybridRetriever:
         ]
 
         retriever.index_documents(chunks)
-        results = retriever.search("physics research", final_top_k=2)
+        # Use rrf mode to avoid needing a reranker
+        results = retriever.search("physics research", final_top_k=2, rerank_mode="rrf")
 
         # Should return results
         assert len(results) >= 1

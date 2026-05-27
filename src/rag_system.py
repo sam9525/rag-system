@@ -9,6 +9,7 @@ from src.config import RAGConfig
 from src.document_loader import DocumentLoader
 from src.chunker import create_chunks, Chunk
 from src.hybrid_retriever import HybridRetriever
+from src.chunk_store import ChunkStore
 from src.rrf_fusion import RRFResult
 from src.generator import OllamaGenerator, OllamaConnectionError, OllamaAPIError
 from src.index_manager import IndexManager, IndexManifest
@@ -43,9 +44,15 @@ class RAGSystem:
         self.index_dir = index_dir or Path(".rag_index")
         self._config = config or RAGConfig()
 
+        # Initialize ChunkStore as single source of truth for chunk data
+        self._chunk_store = ChunkStore(self.index_dir)
+
         # Initialize components with explicit config
         self.document_loader = loader or DocumentLoader(self.source_dir)
-        self.retriever = HybridRetriever(config_override=self._config.retrieval)
+        self.retriever = HybridRetriever(
+            config_override=self._config.retrieval,
+            chunk_store=self._chunk_store,
+        )
         self.generator = OllamaGenerator(config=self._config.generation)
         self.index_manager = IndexManager(self.index_dir)
 
@@ -105,7 +112,8 @@ class RAGSystem:
             vector_path = self.index_dir / "vectors.faiss"
             bm25_path = self.index_dir / "bm25.json"
             if vector_path.exists() and bm25_path.exists() and chunks_path.exists():
-                self.retriever.load(str(vector_path), str(bm25_path), str(chunks_path))
+                self._chunk_store.load()
+                self.retriever.load(str(vector_path), str(bm25_path))
 
             self._indexed = True
             total_chunks = sum(f["chunk_count"] for f in manifest.files.values())
@@ -151,11 +159,12 @@ class RAGSystem:
         self.retriever.index_documents(all_chunks)
 
         # Save all indexes and chunks
+        self._chunk_store.set_chunks(all_chunks)
         self.retriever.save(
             str(self.index_dir / "vectors.faiss"),
             str(self.index_dir / "bm25.json"),
-            str(self.index_dir / "chunks.json"),
         )
+        self._chunk_store.save()
 
         # Save manifest
         manifest = IndexManifest(index_dir=self.index_dir)
