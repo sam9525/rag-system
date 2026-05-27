@@ -1,82 +1,72 @@
-"""Hybrid retriever combining semantic and keyword search with RRF fusion."""
+"""Thin orchestrator for hybrid retrieval using pluggable engines."""
 
-from typing import List, Dict, Optional, Tuple, Union
+from typing import Optional
+from pathlib import Path
 
+from src.config import RetrievalConfig, EmbeddingConfig
 from src.embeddings import EmbeddingManager
-from src.vector_store import VectorStore
-from src.bm25_retriever import BM25RetrieverWrapper, BM25Result
 from src.neural_rerank import NeuralRerank, RerankResult
-from src.rrf_fusion import RRFResult, rrf_fusion
-from src.config import config
+from src.search_result import SearchResult
+from src.chunk_store import ChunkStore
+from src.retrieval_engine import RetrievalEngine, FusionStrategy
+from src.semantic_search import SemanticSearch
+from src.keyword_search import KeywordSearch
+from src.fusion import RRFFusion
+from src.rrf_fusion import RRFResult
 
 
 class HybridRetriever:
-    """Combines semantic (FAISS) and keyword (BM25) retrieval with RRF fusion.
+    """Orchestrates semantic, keyword, and optional neural retrieval.
 
-    Uses chunks.json as single source of truth. FAISS and BM25 only store
-    embeddings/inverted-index, not text/metadata.
+    Delegates to pluggable RetrievalEngine and FusionStrategy instances.
+    ChunkStore provides the single source of truth for chunk data.
     """
 
     def __init__(
         self,
+        config_override: RetrievalConfig | None = None,
         embedding_manager: EmbeddingManager = None,
         embedding_dim: int = None,
-        config_override=None,
+        chunk_store: ChunkStore | None = None,
     ):
-        """Initialize hybrid retriever.
+        self.config = config_override or RetrievalConfig()
+        self._chunk_store = chunk_store or ChunkStore(Path(".rag_index"))
 
-        Args:
-            embedding_manager: Optional embedding manager. Creates default if None.
-            embedding_dim: Dimension for vector store (required if no manager provided).
-            config_override: Optional config replacement.
-        """
-        self.config = config_override or config.retrieval
+        self.embedding_manager = (
+            embedding_manager if embedding_manager is not None else EmbeddingManager()
+        )
+        # Infer dimension from embedding manager if available
+        self._embedding_dim = (
+            embedding_dim
+            or getattr(self.embedding_manager, "dimension", None)
+            or EmbeddingConfig().dimension
+        )
 
-        if embedding_manager is not None:
-            self.embedding_manager = embedding_manager
-            self._embedding_dim = embedding_manager.dimension
-        else:
-            self.embedding_manager = EmbeddingManager()
-            self._embedding_dim = embedding_dim or config.embedding.dimension
+        self._semantic = SemanticSearch(
+            embedding_manager=self.embedding_manager,
+            chunk_store=self._chunk_store,
+            embedding_dim=self._embedding_dim,
+        )
+        self._keyword = KeywordSearch(chunk_store=self._chunk_store)
+        self._fusion = RRFFusion(k=self.config.rrf_k)
 
-        self.vector_store = VectorStore(self._embedding_dim)
-        self.bm25_retriever = BM25RetrieverWrapper()
+        # Expose vector_store for backwards compatibility
+        self.vector_store = self._semantic._vector_store
 
-        # Single source of truth for all chunks
-        self.chunks: List[Dict] = []
-
-        # Reranker for second-stage ranking (None = disabled)
         self.rerank: Optional[NeuralRerank] = None
 
     def set_rerank(self, rerank: NeuralRerank):
-        """Set the reranker to use after RRF fusion.
-
-        Args:
-            rerank: NeuralRerank instance for reranking
-        """
         self.rerank = rerank
 
-    def index_documents(self, chunks: List[Dict]):
-        """Index documents for hybrid retrieval.
-
-        Args:
-            chunks: List of dicts with 'text' and 'metadata' keys
-        """
+    def index_documents(self, chunks: list[dict]):
+        """Index documents for retrieval."""
         if not chunks:
             return
-
-        # Store chunks as single source of truth
-        self.chunks = chunks
-
-        # Get texts for embedding
+        self._chunk_store.set_chunks(chunks)
         texts = [chunk["text"] for chunk in chunks]
-
-        # Semantic indexing - embed and store in FAISS
         embeddings = self.embedding_manager.embed_batch(texts)
-        self.vector_store.add_vectors(embeddings)
-
-        # Keyword indexing - BM25 (BM25 stores indices, not full text)
-        self.bm25_retriever.index_documents_from_chunks(chunks)
+        self._semantic.add_vectors(embeddings)
+        self._keyword.index_documents(chunks)
 
     def search(
         self,
@@ -85,185 +75,97 @@ class HybridRetriever:
         keyword_top_k: int = None,
         final_top_k: int = None,
         rerank_mode: str = "hybrid",
-    ) -> Union[List[RRFResult], List[RerankResult]]:
-        """Search using hybrid retrieval.
-
-        Args:
-            query: Search query
-            semantic_top_k: Top k from semantic search (default from config)
-            keyword_top_k: Top k from keyword search (default from config)
-            final_top_k: Final number of results (default from config)
-            rerank_mode: One of "rrf", "neural", or "hybrid".
-                - "rrf": Only RRF fusion, returns List[RRFResult]
-                - "neural": Semantic + keyword + neural reranking, returns List[RerankResult]
-                - "hybrid": RRF fusion + neural reranking, returns List[RRFResult]
-
-        Returns:
-            For "rrf"/"hybrid": List of RRFResult objects
-            For "neural": List of RerankResult objects
-        """
+    ) -> list[RRFResult]:
+        """Search using hybrid retrieval."""
         final_top_k = final_top_k or self.config.final_top_k
         semantic_top_k = semantic_top_k or self.config.semantic_top_k
         keyword_top_k = keyword_top_k or self.config.keyword_top_k
 
-        # Empty corpus handling
-        if not self.chunks:
+        if self._chunk_store.chunk_count() == 0:
             return []
 
-        # Semantic and bm25 search always runs
-        query_embedding = self.embedding_manager.embed_text(query)
-        semantic_results = self.vector_store.search(
-            query_embedding, top_k=semantic_top_k
-        )
-        keyword_results = self.bm25_retriever.search(query, top_k=keyword_top_k)
+        semantic_results = self._semantic.search(query, top_k=semantic_top_k)
+        keyword_results = self._keyword.search(query, top_k=keyword_top_k)
 
         if rerank_mode == "rrf":
-            # Pure RRF fusion - no neural reranking
-            fused_ranking = rrf_fusion(
-                semantic_results,
-                [(r.chunk_index, r.score) for r in keyword_results],
-                k=self.config.rrf_k,
+            fused = self._fusion.fuse(
+                [semantic_results, keyword_results], k=self.config.rrf_k
             )
-            results = self._build_results_from_fusion(
-                fused_ranking, semantic_results, keyword_results, final_top_k
-            )
+            return self._search_results_to_rrf(fused)[:final_top_k]
         elif rerank_mode == "neural":
-            # Combine semantic + keyword results, then neural reranking
-            all_texts = []
-            seen = set()
-            for idx, score in semantic_results:
-                chunk = self.chunks[idx]
-                if chunk["text"] not in seen:
-                    all_texts.append(chunk["text"])
-                    seen.add(chunk["text"])
-            for r in keyword_results:
-                kw_text = (
-                    self.chunks[r.chunk_index]["text"]
-                    if r.chunk_index < len(self.chunks)
-                    else None
-                )
-                if kw_text and kw_text not in seen:
-                    all_texts.append(kw_text)
-                    seen.add(kw_text)
-            reranked = self.rerank(query, all_texts, top_k=final_top_k)
-            results = [self._rerank_to_rrf(r) for r in reranked]
-        else:
-            # hybrid mode: RRF fusion + neural reranking
-            fused_ranking = rrf_fusion(
-                semantic_results,
-                [(r.chunk_index, r.score) for r in keyword_results],
-                k=self.config.rrf_k,
-            )
-            candidates_for_rerank = self._build_results_from_fusion(
-                fused_ranking,
-                semantic_results,
-                keyword_results,
-                self.config.rerank_top_k,
-            )
+            all_results = self._deduplicate(semantic_results, keyword_results)
+            if self.rerank is None:
+                return self._search_results_to_rrf(all_results)[:final_top_k]
             reranked = self.rerank(
-                query, [c.text for c in candidates_for_rerank], top_k=final_top_k
+                query,
+                [r.text for r in all_results],
+                top_k=final_top_k,
             )
-            results = [self._rerank_to_rrf(r) for r in reranked]
+            return [self._rerank_to_rrf(r) for r in reranked]
+        else:
+            fused = self._fusion.fuse(
+                [semantic_results, keyword_results], k=self.config.rrf_k
+            )
+            candidates = fused[: self.config.rerank_top_k]
+            if self.rerank is None:
+                return self._search_results_to_rrf(candidates)[:final_top_k]
+            reranked = self.rerank(
+                query,
+                [c.text for c in candidates],
+                top_k=final_top_k,
+            )
+            return [self._rerank_to_rrf(r) for r in reranked]
 
-        return results
+    def _search_results_to_rrf(self, results: list[SearchResult]) -> list[RRFResult]:
+        """Convert SearchResult list to RRFResult list."""
+        sem_lookup = {}
+        return [
+            RRFResult(
+                text=r.text,
+                score=r.score,
+                metadata=r.metadata,
+                chunk_index=r.chunk_index,
+                semantic_score=sem_lookup.get(r.chunk_index),
+                keyword_score=sem_lookup.get(r.chunk_index),
+            )
+            for r in results
+        ]
 
-    def _build_results_from_fusion(
-        self,
-        fused_ranking: List[Tuple[int, float]],
-        semantic_results: List[Tuple[int, float]],
-        keyword_results: List,
-        final_top_k: int,
-    ) -> List[RRFResult]:
-        """Build RRFResult list from RRF fusion."""
-        sem_lookup = {idx: score for idx, score in semantic_results}
-        kw_lookup = {r.chunk_index: r.score for r in keyword_results}
-
+    def _deduplicate(
+        self, semantic: list[SearchResult], keyword: list[SearchResult]
+    ) -> list[SearchResult]:
+        seen = set()
         results = []
-        for chunk_idx, rrf_score in fused_ranking[:final_top_k]:
-            if chunk_idx < len(self.chunks):
-                chunk = self.chunks[chunk_idx]
-                results.append(
-                    RRFResult(
-                        text=chunk["text"],
-                        score=rrf_score,
-                        metadata=chunk.get("metadata", {}),
-                        chunk_index=chunk_idx,
-                        semantic_score=sem_lookup.get(chunk_idx),
-                        keyword_score=kw_lookup.get(chunk_idx),
-                    )
-                )
+        for r in semantic + keyword:
+            if r.text not in seen:
+                seen.add(r.text)
+                results.append(r)
         return results
 
     def _rerank_to_rrf(self, rerank_result: RerankResult) -> RRFResult:
         """Convert RerankResult to RRFResult, preserving metadata from chunks."""
-        chunk_idx = -1
-        metadata = {}
-        for idx, chunk in enumerate(self.chunks):
-            if chunk["text"] == rerank_result.text:
-                chunk_idx = idx
-                metadata = chunk.get("metadata", {})
-                break
+        chunk_idx, chunk = self._chunk_store.lookup_by_text(rerank_result.text)
         return RRFResult(
             text=rerank_result.text,
             score=rerank_result.rerank_score,
-            metadata=metadata,
+            metadata=chunk.get("metadata", {}) if chunk else {},
             chunk_index=chunk_idx,
         )
 
-    def _text_to_result(self, text: str) -> RRFResult:
-        """Convert text back to RRFResult using chunks list."""
-        for idx, chunk in enumerate(self.chunks):
-            if chunk["text"] == text:
-                return RRFResult(
-                    text=text,
-                    score=0.0,
-                    metadata=chunk.get("metadata", {}),
-                    chunk_index=idx,
-                )
-        return RRFResult(text=text, score=0.0, metadata={}, chunk_index=-1)
-
     def count(self) -> int:
         """Get number of indexed documents."""
-        return len(self.chunks)
+        return self._chunk_store.chunk_count()
 
-    def load_chunks(self, chunks: List[Dict]):
+    def load_chunks(self, chunks: list[dict]):
         """Load chunks from external source (e.g., chunks.json)."""
-        self.chunks = chunks
-
-    def save(self, vector_path: str, bm25_path: str, chunks_path: str = None):
-        """Save vector index, BM25 index, and chunks to disk.
-
-        Args:
-            vector_path: Path to save FAISS index
-            bm25_path: Path to save BM25 index
-            chunks_path: Path to save chunks (defaults to vector_path.replace('.index', '.chunks.json'))
-        """
-        import json
-
-        self.vector_store.save(vector_path)
-        self.bm25_retriever.save(bm25_path)
-        if chunks_path is None:
-            chunks_path = vector_path.replace(".index", ".chunks.json")
-        with open(chunks_path, "w", encoding="utf-8") as f:
-            json.dump(self.chunks, f, ensure_ascii=False)
-        print(f"Saved {len(self.chunks)} chunks to {chunks_path}")
+        self._chunk_store.set_chunks(chunks)
 
     def load(self, vector_path: str, bm25_path: str, chunks_path: str = None):
-        """Load vector index, BM25 index, and chunks from disk.
+        self._semantic.load(vector_path)
+        self._keyword.load(bm25_path)
+        self._chunk_store.load()
 
-        Args:
-            vector_path: Path to FAISS index
-            bm25_path: Path to BM25 index
-            chunks_path: Path to chunks (defaults to vector_path.replace('.index', '.chunks.json'))
-        """
-        import json
-
-        print(f"Loading vector index from {vector_path}...")
-        self.vector_store.load(vector_path)
-        print(f"Loading BM25 index from {bm25_path}...")
-        self.bm25_retriever.load(bm25_path)
-        if chunks_path is None:
-            chunks_path = vector_path.replace(".index", ".chunks.json")
-        with open(chunks_path, "r", encoding="utf-8") as f:
-            self.chunks = json.load(f)
-        print(f"Loaded {len(self.chunks)} chunks from {chunks_path}")
+    def save(self, vector_path: str, bm25_path: str, chunks_path: str = None):
+        self._semantic.save(vector_path)
+        self._keyword.save(bm25_path)
+        self._chunk_store.save()
