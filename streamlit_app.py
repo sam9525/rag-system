@@ -269,16 +269,21 @@ def main():
                                 try:
                                     evaluator = RAGASEvaluator(
                                         st.session_state.rag_system,
-                                        rerank_mode="hybrid"
+                                        rerank_mode="hybrid",
                                     )
                                     from src.evaluation.test_case import EvalCase
+
                                     case = EvalCase(
                                         question=st.session_state.current_query_result.query,
                                     )
-                                    st.session_state.eval_result = evaluator.run_case(case)
+                                    st.session_state.eval_result = evaluator.run_case(
+                                        case
+                                    )
                                     st.session_state.eval_error = None
                                 except Exception as e:
-                                    st.session_state.eval_error = f"Evaluation failed: {str(e)}"
+                                    st.session_state.eval_error = (
+                                        f"Evaluation failed: {str(e)}"
+                                    )
                                     st.session_state.eval_result = None
 
                             st.rerun()
