@@ -3,7 +3,8 @@
 from typing import List, Dict, Optional
 import requests
 
-from src.config import config as global_config
+from src.config import GenerationConfig
+from src.ollama_client import OllamaClient, RequestsOllamaClient
 
 
 class OllamaConnectionError(Exception):
@@ -38,22 +39,20 @@ RESPONSE FORMAT:
 - [Numbered citations in brackets]
 - Brief follow-up context if needed"""
 
-    def __init__(self, model: str = None, base_url: str = None, config=None):
-        """Initialize generator with configuration."""
-        self.config = config if config is not None else global_config.generation
-
-        if model:
-            self.config.model = model
+    def __init__(
+        self,
+        config=None,
+        client: OllamaClient | None = None,
+        base_url: str | None = None,
+    ):
+        """Initialize generator with configuration and optional client injection."""
+        self.config = config if config is not None else GenerationConfig()
         if base_url:
             self.config.base_url = base_url
-
-    def _check_connection(self) -> bool:
-        """Check if Ollama is running and accessible."""
-        try:
-            response = requests.get(f"{self.config.base_url}/api/tags", timeout=5)
-            return response.status_code == 200
-        except requests.exceptions.RequestException:
-            return False
+        self._client = client or RequestsOllamaClient(
+            base_url=self.config.base_url,
+            timeout=120,
+        )
 
     def is_available(self) -> bool:
         """Check if Ollama is available.
@@ -61,7 +60,7 @@ RESPONSE FORMAT:
         Returns:
             True if Ollama is running and accessible, False otherwise.
         """
-        return self._check_connection()
+        return self._client.check_connection()
 
     def _build_prompt(self, question: str, chunks: List[Dict]) -> str:
         """Build the full prompt with context chunks.
@@ -109,8 +108,7 @@ ANSWER:"""
             OllamaConnectionError: If Ollama server is not reachable.
             OllamaAPIError: If Ollama API returns an error.
         """
-        # Check connection first
-        if not self._check_connection():
+        if not self._client.check_connection():
             raise OllamaConnectionError(
                 f"Cannot connect to Ollama at {self.config.base_url}. "
                 "Please ensure Ollama is running (ollama serve)."
@@ -119,31 +117,19 @@ ANSWER:"""
         prompt = self._build_prompt(question, chunks) if rag else question
 
         try:
-            response = requests.post(
-                f"{self.config.base_url}/api/generate",
-                json={
-                    "model": self.config.model,
-                    "prompt": prompt,
-                    "system": self.SYSTEM_PROMPT if rag else "",
-                    "temperature": self.config.temperature,
-                    "max_tokens": self.config.max_tokens,
-                    "stream": self.config.stream,
-                },
-                timeout=120,
+            return self._client.generate(
+                model=self.config.model,
+                prompt=prompt,
+                system=self.SYSTEM_PROMPT if rag else "",
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
             )
-
-            if response.status_code != 200:
-                raise OllamaAPIError(f"Ollama API error: HTTP {response.status_code}")
-
-            result = response.json()
-            return result.get("response", "")
-
         except requests.exceptions.ConnectionError:
             raise OllamaConnectionError(
                 f"Cannot connect to Ollama at {self.config.base_url}"
             )
         except requests.exceptions.Timeout:
-            raise OllamaAPIError(f"Ollama request timed out after 120s")
+            raise OllamaAPIError("Ollama request timed out after 120s")
         except requests.exceptions.RequestException as e:
             raise OllamaAPIError(f"Ollama request failed: {e}")
 

@@ -2,6 +2,30 @@
 
 import pytest
 from src.generator import OllamaGenerator, OllamaConnectionError, OllamaAPIError
+from src.ollama_client import OllamaClient
+
+
+class MockOllamaClient:
+    """Mock client for testing without network."""
+
+    def __init__(self, available: bool = True, response: str = "Mock response"):
+        self._available = available
+        self._response = response
+        self.check_connection_called = False
+
+    def check_connection(self) -> bool:
+        self.check_connection_called = True
+        return self._available
+
+    def generate(
+        self,
+        model: str,
+        prompt: str,
+        system: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> str:
+        return self._response
 
 
 class TestOllamaGenerator:
@@ -39,51 +63,18 @@ class TestOllamaGenerator:
         assert "[2]" in prompt
         assert "Chunk 1" in prompt
 
-    def test_generate_requires_ollama_running(self):
-        """Test generate fails gracefully if Ollama not running."""
-        generator = OllamaGenerator()
-        chunks = [
-            {
-                "text": "test",
-                "score": 0.9,
-                "metadata": {"source": "test.pdf", "page": 1},
-            }
-        ]
-        # This will fail if Ollama not running - test error handling
-        try:
-            response = generator.generate("test", chunks)
-            # If it succeeds, Ollama is running
-        except OllamaConnectionError:
-            pass  # Expected if Ollama not running
-
     def test_is_available_returns_connection_status(self):
         """Test is_available returns true when Ollama running, false otherwise."""
-        generator = OllamaGenerator()
+        mock = MockOllamaClient(available=True)
+        generator = OllamaGenerator(client=mock)
 
-        # Mock the connection check
-        generator._check_connection = lambda: True
-        assert generator.is_available() == True
+        assert generator.is_available() is True
+        assert mock.check_connection_called is True
 
-        generator._check_connection = lambda: False
-        assert generator.is_available() == False
+        mock2 = MockOllamaClient(available=False)
+        generator2 = OllamaGenerator(client=mock2)
 
-    def test_generate_raises_if_unavailable(self):
-        """Test generate raises OllamaConnectionError if unavailable."""
-        generator = OllamaGenerator()
-
-        # Mock unavailable state
-        generator._check_connection = lambda: False
-
-        chunks = [
-            {
-                "text": "test",
-                "score": 0.9,
-                "metadata": {"source": "test.pdf", "page": 1},
-            }
-        ]
-
-        with pytest.raises(OllamaConnectionError):
-            generator.generate("test question", chunks)
+        assert generator2.is_available() is False
 
     def test_connection_error_on_refused(self):
         """Test that refused connection raises OllamaConnectionError."""
@@ -126,3 +117,34 @@ class TestOllamaGenerator:
         # Chunks should be labeled with numbers
         assert "Chunk 1" in prompt
         assert "Chunk 2" in prompt
+
+    def test_generator_uses_injected_client(self):
+        """Test generator uses the injected client instead of making live requests."""
+        from src.config import GenerationConfig
+
+        mock = MockOllamaClient(available=True, response="test output")
+        config = GenerationConfig()
+        generator = OllamaGenerator(config=config, client=mock)
+
+        chunks = [
+            {
+                "text": "context",
+                "score": 0.9,
+                "metadata": {"source": "x.pdf", "page": 1},
+            }
+        ]
+        result = generator.generate("question", chunks)
+
+        assert result == "test output"
+        assert mock.check_connection_called is True
+
+    def test_generate_raises_when_client_unavailable(self):
+        """Test generate raises OllamaConnectionError when client reports unavailable."""
+        from src.config import GenerationConfig
+
+        mock = MockOllamaClient(available=False)
+        config = GenerationConfig()
+        generator = OllamaGenerator(config=config, client=mock)
+
+        with pytest.raises(OllamaConnectionError):
+            generator.generate("question", [])
