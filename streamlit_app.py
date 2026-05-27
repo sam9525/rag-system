@@ -225,40 +225,39 @@ def main():
         with st.chat_message("assistant"):
             with st.spinner("Searching and generating..."):
                 try:
-                    result = st.session_state.rag_system.query(prompt)
+                    try:
+                        evaluator = RAGASEvaluator(
+                            st.session_state.rag_system, rerank_mode="hybrid"
+                        )
+                        from src.evaluation.test_case import EvalCase
 
-                    # Pre-calculate evaluation
-                    with st.spinner("Evaluating response..."):
-                        try:
-                            evaluator = RAGASEvaluator(
-                                st.session_state.rag_system, rerank_mode="hybrid"
-                            )
-                            from src.evaluation.test_case import EvalCase
+                        case = EvalCase(question=prompt)
+                        eval_result = evaluator.run_case(case)
+                        st.session_state.eval_result = eval_result
+                        st.session_state.eval_error = None
+                    except Exception as e:
+                        st.session_state.eval_error = f"Evaluation failed: {str(e)}"
+                        st.session_state.eval_result = None
+                        eval_result = None
 
-                            case = EvalCase(question=result.query)
-                            st.session_state.eval_result = evaluator.run_case(case)
-                            st.session_state.eval_error = None
-                        except Exception as e:
-                            st.session_state.eval_error = f"Evaluation failed: {str(e)}"
-                            st.session_state.eval_result = None
+                    if eval_result:
+                        st.markdown(f"**Answer:**\n{eval_result.answer}")
 
-                    st.markdown(f"**Answer:**\n{result.answer}")
+                        if eval_result.sources:
+                            st.markdown("**Sources:**")
+                            for i, source in enumerate(eval_result.sources, 1):
+                                st.markdown(
+                                    f"- **[{i}]** {source['source']}, Page {source['page']}"
+                                )
 
-                    if result.sources:
-                        st.markdown("**Sources:**")
-                        for i, source in enumerate(result.sources, 1):
-                            st.markdown(
-                                f"- **[{i}]** {source['source']}, Page {source['page']}"
-                            )
-
-                        render_sources(result.sources)
+                            render_sources(eval_result.sources)
 
                         # Show evaluation scores inline
                         render_eval_scores()
 
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": result.answer}
-                    )
+                        st.session_state.messages.append(
+                            {"role": "assistant", "content": eval_result.answer}
+                        )
 
                 except Exception as e:
                     st.error(f"Generation failed: {e}")
