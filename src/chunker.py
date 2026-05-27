@@ -6,7 +6,7 @@ from typing import Dict, Any, List
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
-from src.config import config
+from src.config import ChunkingConfig
 
 
 @dataclass
@@ -59,7 +59,7 @@ def create_chunks(text: str, base_metadata: Dict, chunk_config=None) -> List[Chu
     Returns:
         List of Chunk objects.
     """
-    cfg = chunk_config or config.chunking
+    cfg = chunk_config or ChunkingConfig()
     splitter = _get_langchain_splitter(cfg)
 
     doc = Document(page_content=text)

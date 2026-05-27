@@ -84,7 +84,3 @@ class RAGConfig:
             self.chunking = ChunkingConfig()
         if self.eval_llm is None:
             self.eval_llm = EvalLLMConfig()
-
-
-# Global config instance
-config = RAGConfig()

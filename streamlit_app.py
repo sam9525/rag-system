@@ -10,7 +10,10 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.rag_system import RAGSystem
-from src.config import config
+from src.config import RAGConfig
+
+# Module-level config instance
+_rag_config = RAGConfig()
 
 # Page configuration
 st.set_page_config(page_title="RAG Knowledge Assistant", page_icon="📚", layout="wide")
@@ -41,7 +44,7 @@ def sidebar_config():
             "Temperature",
             min_value=0.0,
             max_value=1.0,
-            value=config.generation.temperature,
+            value=_rag_config.generation.temperature,
             step=0.1,
             help="Lower = more focused, Higher = more creative",
         )
@@ -90,7 +93,10 @@ def main():
     if st.session_state.rag_system is None or reindex:
         with st.spinner("Initializing RAG system..."):
             try:
-                st.session_state.rag_system = RAGSystem(source_dir=Path(source_dir))
+                st.session_state.rag_system = RAGSystem(
+                    source_dir=Path(source_dir),
+                    config=_rag_config,
+                )
                 stats = st.session_state.rag_system.ingest_documents(Path(source_dir))
                 st.success(
                     f"Indexed {stats['documents_loaded']} documents with {stats['chunks_created']} chunks"

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import List, Dict, Optional
 from pathlib import Path
 
-from src.config import config
+from src.config import RAGConfig
 from src.document_loader import DocumentLoader
 from src.chunker import create_chunks, Chunk
 from src.hybrid_retriever import HybridRetriever
@@ -32,21 +32,26 @@ class RAGSystem:
     """
 
     def __init__(
-        self, source_dir: Optional[Path] = None, index_dir: Optional[Path] = None
+        self,
+        source_dir: Optional[Path] = None,
+        index_dir: Optional[Path] = None,
+        config: Optional[RAGConfig] = None,
     ):
         """Initialize RAG system with all components."""
         self.source_dir = source_dir or Path("sources")
         self.index_dir = index_dir or Path(".rag_index")
+        self._config = config or RAGConfig()
 
-        # Initialize components
+        # Initialize components with explicit config
         self.document_loader = DocumentLoader(self.source_dir)
-        self.retriever = HybridRetriever()
-        self.generator = OllamaGenerator()
+        self.retriever = HybridRetriever(config_override=self._config.retrieval)
+        self.generator = OllamaGenerator(config=self._config.generation)
         self.index_manager = IndexManager(self.index_dir)
 
-        # Initialize reranker based on config (None if disabled)
-        # if config.retrieval.use_neural_rerank:
-        self.retriever.set_rerank(NeuralRerank(model=config.retrieval.rerank_model))
+        # Initialize reranker based on config
+        self.retriever.set_rerank(
+            NeuralRerank(model=self._config.retrieval.rerank_model)
+        )
 
         self._indexed = False
 
@@ -266,4 +271,5 @@ class RAGSystem:
             "model": self.generator.config.model,
             "embedding_model": self.retriever.embedding_manager.model_name,
             "index_dir": str(self.index_dir),
+            "config": self._config,  # Expose for testing
         }

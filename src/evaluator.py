@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import List
 
 from src.test_case import EvalCase
-from src.config import config
+from src.config import EvalLLMConfig
 
 from ragas.llms import llm_factory
 from ragas.metrics.collections import (
@@ -69,15 +69,18 @@ class RAGASEvaluator:
         self._answer_relevancy = None
         self._context_relevance = None
 
+        # Initialize config
+        self._eval_config = EvalLLMConfig()
+
         # Initialize OpenAI client for Ollama (OpenAI-compatible API)
         self._async_client = AsyncOpenAI(
-            api_key=config.eval_llm.api_key, base_url=config.eval_llm.base_url
+            api_key=self._eval_config.api_key, base_url=self._eval_config.base_url
         )
 
         # Initialize LLM wrapper for RAGAS using Ollama with async client
         self._llm = llm_factory(
-            config.eval_llm.model,
-            provider=config.eval_llm.provider,
+            self._eval_config.model,
+            provider=self._eval_config.provider,
             client=self._async_client,
         )
 

@@ -7,7 +7,7 @@ from src.vector_store import VectorStore
 from src.bm25_retriever import BM25RetrieverWrapper, BM25Result
 from src.neural_rerank import NeuralRerank, RerankResult
 from src.rrf_fusion import RRFResult, rrf_fusion
-from src.config import config
+from src.config import RetrievalConfig
 from src.search_result import SearchResult
 
 
@@ -20,25 +20,27 @@ class HybridRetriever:
 
     def __init__(
         self,
+        config_override: RetrievalConfig | None = None,
         embedding_manager: EmbeddingManager = None,
         embedding_dim: int = None,
-        config_override=None,
     ):
         """Initialize hybrid retriever.
 
         Args:
+            config_override: Optional RetrievalConfig replacement.
             embedding_manager: Optional embedding manager. Creates default if None.
             embedding_dim: Dimension for vector store (required if no manager provided).
-            config_override: Optional config replacement.
         """
-        self.config = config_override or config.retrieval
+        from src.config import EmbeddingConfig
+
+        self.config = config_override or RetrievalConfig()
 
         if embedding_manager is not None:
             self.embedding_manager = embedding_manager
             self._embedding_dim = embedding_manager.dimension
         else:
             self.embedding_manager = EmbeddingManager()
-            self._embedding_dim = embedding_dim or config.embedding.dimension
+            self._embedding_dim = embedding_dim or EmbeddingConfig().dimension
 
         self.vector_store = VectorStore(self._embedding_dim)
         self.bm25_retriever = BM25RetrieverWrapper()
