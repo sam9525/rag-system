@@ -28,7 +28,12 @@ AVAILABLE_MODELS = [
 ]
 
 # Default model (Gemma 4 4B)
-DEFAULT_MODEL_INDEX = 4
+DEFAULT_MODEL_NAME = "gemma4:e4b"
+# Derive index from model name for maintainability
+DEFAULT_MODEL_INDEX = next(
+    (i for i, m in enumerate(AVAILABLE_MODELS) if m[1] == DEFAULT_MODEL_NAME),
+    4,  # Fallback to index 4 if not found
+)
 
 # Module-level config instance
 _config = RAGConfig()
