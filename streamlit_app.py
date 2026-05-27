@@ -63,6 +63,10 @@ def init_session_state():
         st.session_state.rag_system = None
     if "messages" not in st.session_state:
         st.session_state.messages = []
+    if "model_index" not in st.session_state:
+        st.session_state.model_index = DEFAULT_MODEL_INDEX
+    if "temperature" not in st.session_state:
+        st.session_state.temperature = 0.3
 
 
 def sidebar_config():
@@ -84,22 +88,29 @@ def sidebar_config():
         model_index = st.selectbox(
             "Model",
             options=range(len(AVAILABLE_MODELS)),
-            index=DEFAULT_MODEL_INDEX,
+            index=int(st.session_state.model_index),
             format_func=lambda i: model_names[i],
             help="Smaller/faster models for quick responses, larger for quality",
+            key="model_selector",
         )
 
         temperature = st.slider(
             "Temperature",
             min_value=0.0,
             max_value=1.0,
-            value=0.3,
+            value=st.session_state.temperature,
             step=0.1,
             help="Lower = more focused, Higher = more creative",
         )
 
-        # Update config when settings change
-        update_generation_config(temperature, model_index)
+        # Update config only when settings change
+        if (
+            model_index != st.session_state.model_index
+            or abs(temperature - st.session_state.temperature) > 0.05
+        ):
+            st.session_state.model_index = model_index
+            st.session_state.temperature = temperature
+            update_generation_config(temperature, model_index)
 
         st.subheader("Actions")
         reindex = st.button("Re-index Documents", type="primary")
@@ -155,7 +166,9 @@ def main():
                 )
             except Exception as e:
                 st.error(f"Error initializing RAG system: {e}")
-                st.info("Check that Ollama is running and the selected model is available.")
+                st.info(
+                    "Check that Ollama is running and the selected model is available."
+                )
                 return
 
     # System stats
