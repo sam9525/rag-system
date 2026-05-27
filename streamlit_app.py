@@ -163,6 +163,10 @@ def eval_panel():
 
         if st.session_state.eval_error:
             st.error(st.session_state.eval_error)
+            st.divider()
+            if st.button("Close Panel"):
+                st.session_state.show_eval_panel = False
+                st.rerun()
             return
 
         if st.session_state.eval_result:
@@ -183,7 +187,8 @@ def eval_panel():
                 st.session_state.show_eval_panel = False
                 st.rerun()
         else:
-            st.info("Click 'Show Evaluate Score' to evaluate the response")
+            # Scores pre-calculated with response
+            st.info("No evaluation available")
 
 
 def main():
@@ -243,8 +248,21 @@ def main():
                     # Store current result for evaluation
                     st.session_state.current_query_result = result
                     st.session_state.show_eval_panel = False  # Reset panel state
-                    st.session_state.eval_result = None
-                    st.session_state.eval_error = None
+
+                    # Pre-calculate evaluation (runs in background)
+                    with st.spinner("Evaluating response..."):
+                        try:
+                            evaluator = RAGASEvaluator(
+                                st.session_state.rag_system, rerank_mode="hybrid"
+                            )
+                            from src.evaluation.test_case import EvalCase
+
+                            case = EvalCase(question=result.query)
+                            st.session_state.eval_result = evaluator.run_case(case)
+                            st.session_state.eval_error = None
+                        except Exception as e:
+                            st.session_state.eval_error = f"Evaluation failed: {str(e)}"
+                            st.session_state.eval_result = None
 
                     st.markdown(f"**Answer:**\n{result.answer}")
 
@@ -257,35 +275,12 @@ def main():
 
                         render_sources(result.sources)
 
-                        # Evaluation button
+                        # Evaluation button - scores pre-calculated
                         if st.button(
                             "Show Evaluate Score",
                             key=f"eval_btn_{len(st.session_state.messages)}",
                         ):
                             st.session_state.show_eval_panel = True
-
-                            # Run evaluation
-                            with st.spinner("Evaluating response..."):
-                                try:
-                                    evaluator = RAGASEvaluator(
-                                        st.session_state.rag_system,
-                                        rerank_mode="hybrid",
-                                    )
-                                    from src.evaluation.test_case import EvalCase
-
-                                    case = EvalCase(
-                                        question=st.session_state.current_query_result.query,
-                                    )
-                                    st.session_state.eval_result = evaluator.run_case(
-                                        case
-                                    )
-                                    st.session_state.eval_error = None
-                                except Exception as e:
-                                    st.session_state.eval_error = (
-                                        f"Evaluation failed: {str(e)}"
-                                    )
-                                    st.session_state.eval_result = None
-
                             st.rerun()
 
                     st.session_state.messages.append(
