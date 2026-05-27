@@ -9,6 +9,9 @@ import sys
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Default sources directory - relative to script location
+DEFAULT_SOURCES_DIR = Path(__file__).parent / "sources"
+
 from src.system.rag_system import RAGSystem
 from src.system.config import RAGConfig, GenerationConfig
 
@@ -77,7 +80,7 @@ def sidebar_config():
         st.subheader("Document Source")
         source_dir = st.text_input(
             "Source Directory",
-            value="D:\\data\\Program\\Python\\rag-system\\sources",
+            value=str(DEFAULT_SOURCES_DIR),
             help="Path to folder containing PDF documents",
         )
 
