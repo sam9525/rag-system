@@ -155,6 +155,36 @@ def render_sources(sources, show_citations=True):
             st.divider()
 
 
+def eval_panel():
+    """Render evaluation panel in right sidebar."""
+    with st.sidebar:
+        st.subheader("Evaluation Scores")
+
+        if st.session_state.eval_error:
+            st.error(st.session_state.eval_error)
+            return
+
+        if st.session_state.eval_result:
+            result = st.session_state.eval_result
+            st.success("Evaluation complete")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Faithfulness", f"{result.faithfulness:.2f}")
+            with col2:
+                st.metric("Answer Relevancy", f"{result.answer_relevancy:.2f}")
+
+            st.metric("Context Relevance", f"{result.context_relevance:.2f}")
+
+            st.divider()
+
+            if st.button("Close Panel"):
+                st.session_state.show_eval_panel = False
+                st.rerun()
+        else:
+            st.info("Click 'Show Evaluate Score' to evaluate the response")
+
+
 def main():
     """Main application."""
     init_session_state()
@@ -227,7 +257,10 @@ def main():
                         render_sources(result.sources)
 
                         # Evaluation button
-                        if st.button("Show Evaluate Score", key=f"eval_btn_{len(st.session_state.messages)}"):
+                        if st.button(
+                            "Show Evaluate Score",
+                            key=f"eval_btn_{len(st.session_state.messages)}",
+                        ):
                             st.session_state.show_eval_panel = True
                             st.rerun()
 
@@ -256,6 +289,10 @@ def main():
                             render_sources(retrieved, show_citations=True)
                     except Exception:
                         st.warning("Retrieval also failed.")
+
+    # Show eval panel if enabled
+    if st.session_state.show_eval_panel:
+        eval_panel()
 
 
 if __name__ == "__main__":
