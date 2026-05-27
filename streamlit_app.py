@@ -226,6 +226,11 @@ def main():
 
                         render_sources(result.sources)
 
+                        # Evaluation button
+                        if st.button("Show Evaluate Score", key=f"eval_btn_{len(st.session_state.messages)}"):
+                            st.session_state.show_eval_panel = True
+                            st.rerun()
+
                     st.session_state.messages.append(
                         {"role": "assistant", "content": result.answer}
                     )
