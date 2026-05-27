@@ -14,6 +14,7 @@ DEFAULT_SOURCES_DIR = Path(__file__).parent / "sources"
 
 from src.system.rag_system import RAGSystem
 from src.system.config import RAGConfig, GenerationConfig
+from src.evaluation.evaluator import RAGASEvaluator
 
 # Available models (name, size, speed)
 # Format: (display_name, model_name)
@@ -262,6 +263,24 @@ def main():
                             key=f"eval_btn_{len(st.session_state.messages)}",
                         ):
                             st.session_state.show_eval_panel = True
+
+                            # Run evaluation
+                            with st.spinner("Evaluating response..."):
+                                try:
+                                    evaluator = RAGASEvaluator(
+                                        st.session_state.rag_system,
+                                        rerank_mode="hybrid"
+                                    )
+                                    from src.evaluation.test_case import EvalCase
+                                    case = EvalCase(
+                                        question=st.session_state.current_query_result.query,
+                                    )
+                                    st.session_state.eval_result = evaluator.run_case(case)
+                                    st.session_state.eval_error = None
+                                except Exception as e:
+                                    st.session_state.eval_error = f"Evaluation failed: {str(e)}"
+                                    st.session_state.eval_result = None
+
                             st.rerun()
 
                     st.session_state.messages.append(
