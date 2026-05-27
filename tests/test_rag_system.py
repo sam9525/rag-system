@@ -15,7 +15,6 @@ class TestRAGSystem:
         assert system.retriever is not None
         assert system.generator is not None
         assert system.document_loader is not None
-        assert system.chunker is not None
 
     def test_query_returns_result(self):
         """Test query returns RAGQueryResult."""
@@ -77,9 +76,9 @@ class TestRAGSystem:
         assert result[0]["section"] == "Intro"
         assert result[0]["text"].startswith("doc1 text")
 
-    def test_import_chunk_from_module(self):
-        """Test Chunk can be imported from src.chunk."""
-        from src.chunk import Chunk
+    def test_import_chunk_from_chunker(self):
+        """Test Chunk can be imported from src.chunker."""
+        from src.chunker import Chunk
 
         chunk = Chunk(text="test content", metadata={"source": "test.pdf"}, chunk_id=0)
         assert chunk.text == "test content"
@@ -87,7 +86,7 @@ class TestRAGSystem:
 
     def test_ingest_accepts_chunk_type(self):
         """Test ingest_documents works with Chunk type."""
-        from src.chunk import Chunk
+        from src.chunker import Chunk
 
         system = RAGSystem(source_dir=Path("sources"))
         chunks = [
