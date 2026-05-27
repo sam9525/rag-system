@@ -209,6 +209,12 @@ def main():
                 try:
                     result = st.session_state.rag_system.query(prompt)
 
+                    # Store current result for evaluation
+                    st.session_state.current_query_result = result
+                    st.session_state.show_eval_panel = False  # Reset panel state
+                    st.session_state.eval_result = None
+                    st.session_state.eval_error = None
+
                     st.markdown(f"**Answer:**\n{result.answer}")
 
                     if result.sources:
