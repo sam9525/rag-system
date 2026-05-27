@@ -12,20 +12,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.rag_system import RAGSystem
 from src.config import config
 
-
 # Page configuration
-st.set_page_config(
-    page_title="RAG Knowledge Assistant",
-    page_icon="📚",
-    layout="wide"
-)
+st.set_page_config(page_title="RAG Knowledge Assistant", page_icon="📚", layout="wide")
 
 
 def init_session_state():
     """Initialize Streamlit session state."""
-    if 'rag_system' not in st.session_state:
+    if "rag_system" not in st.session_state:
         st.session_state.rag_system = None
-    if 'messages' not in st.session_state:
+    if "messages" not in st.session_state:
         st.session_state.messages = []
 
 
@@ -38,7 +33,7 @@ def sidebar_config():
         source_dir = st.text_input(
             "Source Directory",
             value="sources",
-            help="Path to folder containing PDF documents"
+            help="Path to folder containing PDF documents",
         )
 
         st.subheader("Generation Settings")
@@ -48,7 +43,7 @@ def sidebar_config():
             max_value=1.0,
             value=config.generation.temperature,
             step=0.1,
-            help="Lower = more focused, Higher = more creative"
+            help="Lower = more focused, Higher = more creative",
         )
 
         st.subheader("Actions")
@@ -72,7 +67,7 @@ def render_sources(sources, show_citations=True):
             st.markdown(f"**{citation}** (Score: {source['score']:.3f})")
             st.markdown(f"- **Source:** {source['source']}")
             st.markdown(f"- **Page:** {source['page']}")
-            if source.get('section'):
+            if source.get("section"):
                 st.markdown(f"- **Section:** {source['section']}")
             st.markdown(f"```\n{source['text']}\n```")
             st.divider()
@@ -87,7 +82,9 @@ def main():
 
     # Main content
     st.title("📚 RAG Knowledge Assistant")
-    st.markdown("Ask questions about your documents. The system will search and generate answers.")
+    st.markdown(
+        "Ask questions about your documents. The system will search and generate answers."
+    )
 
     # Initialize RAG system
     if st.session_state.rag_system is None or reindex:
@@ -95,14 +92,18 @@ def main():
             try:
                 st.session_state.rag_system = RAGSystem(source_dir=Path(source_dir))
                 stats = st.session_state.rag_system.ingest_documents(Path(source_dir))
-                st.success(f"Indexed {stats['documents_loaded']} documents with {stats['chunks_created']} chunks")
+                st.success(
+                    f"Indexed {stats['documents_loaded']} documents with {stats['chunks_created']} chunks"
+                )
             except Exception as e:
                 st.error(f"Error: {e}")
                 return
 
     # System stats
     stats = st.session_state.rag_system.get_stats()
-    st.caption(f"Model: {stats['model']} | Embedding: {stats['embedding_model']} | Documents: {stats['document_count']}")
+    st.caption(
+        f"Model: {stats['model']} | Embedding: {stats['embedding_model']} | Documents: {stats['document_count']}"
+    )
 
     # Chat history
     render_chat_history()
@@ -125,26 +126,33 @@ def main():
                     if result.sources:
                         st.markdown("**Sources:**")
                         for i, source in enumerate(result.sources, 1):
-                            st.markdown(f"- **[{i}]** {source['source']}, Page {source['page']}")
+                            st.markdown(
+                                f"- **[{i}]** {source['source']}, Page {source['page']}"
+                            )
 
                         render_sources(result.sources)
 
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": result.answer
-                    })
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": result.answer}
+                    )
 
                 except Exception as e:
                     st.error(f"Error: {e}")
-                    st.info("Showing top retrieved chunks while we resolve the issue...")
+                    st.info(
+                        "Showing top retrieved chunks while we resolve the issue..."
+                    )
 
                     # Show sources even when generation fails
                     try:
-                        retrieved = st.session_state.rag_system.retriever.retrieve(prompt, top_k=5)
+                        retrieved = st.session_state.rag_system.retrieve(
+                            prompt, top_k=5
+                        )
                         if retrieved:
                             st.markdown("**Retrieved Chunks:**")
                             for i, chunk in enumerate(retrieved, 1):
-                                st.markdown(f"- **[{i}]** {chunk['source']}, Page {chunk['page']}")
+                                st.markdown(
+                                    f"- **[{i}]** {chunk['source']}, Page {chunk['page']}"
+                                )
                             render_sources(retrieved, show_citations=True)
                     except Exception:
                         pass  # Best effort - sources may not be available

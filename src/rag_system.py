@@ -237,6 +237,27 @@ class RAGSystem:
         """Check if documents are indexed."""
         return self._indexed
 
+    def retrieve(self, query: str, top_k: int = 5) -> List[Dict]:
+        """Retrieve chunks without generating an answer. Used by UI components.
+
+        Args:
+            query: Search query
+            top_k: Number of chunks to retrieve
+
+        Returns:
+            List of chunk dicts with text, metadata, and score
+        """
+        if not self._indexed:
+            raise ValueError("No documents indexed. Call ingest_documents() first.")
+
+        retrieved_chunks = self.retriever.search(
+            query,
+            final_top_k=top_k,
+        )
+
+        # Transform RRFResult/RerankResult to dict format for UI
+        return self._transform_chunks_for_generator(retrieved_chunks)
+
     def get_stats(self) -> Dict:
         """Get system statistics."""
         return {
