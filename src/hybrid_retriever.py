@@ -8,6 +8,7 @@ from src.bm25_retriever import BM25RetrieverWrapper, BM25Result
 from src.neural_rerank import NeuralRerank, RerankResult
 from src.rrf_fusion import RRFResult, rrf_fusion
 from src.config import config
+from src.search_result import SearchResult
 
 
 class HybridRetriever:
@@ -56,6 +57,18 @@ class HybridRetriever:
         """
         self.rerank = rerank
 
+    def _to_search_result(self, chunk_idx: int, score: float) -> SearchResult:
+        """Convert a chunk index + score to SearchResult using chunks list."""
+        if 0 <= chunk_idx < len(self.chunks):
+            chunk = self.chunks[chunk_idx]
+            return SearchResult(
+                chunk_index=chunk_idx,
+                score=score,
+                text=chunk["text"],
+                metadata=chunk.get("metadata", {}),
+            )
+        return SearchResult(chunk_index=-1, score=0.0, text="", metadata={})
+
     def index_documents(self, chunks: List[Dict]):
         """Index documents for hybrid retrieval.
 
@@ -85,7 +98,7 @@ class HybridRetriever:
         keyword_top_k: int = None,
         final_top_k: int = None,
         rerank_mode: str = "hybrid",
-    ) -> Union[List[RRFResult], List[RerankResult]]:
+    ) -> List[SearchResult]:
         """Search using hybrid retrieval.
 
         Args:
@@ -146,7 +159,7 @@ class HybridRetriever:
                     all_texts.append(kw_text)
                     seen.add(kw_text)
             reranked = self.rerank(query, all_texts, top_k=final_top_k)
-            results = [self._rerank_to_rrf(r) for r in reranked]
+            results = [self._rerank_to_search_result(r) for r in reranked]
         else:
             # hybrid mode: RRF fusion + neural reranking
             fused_ranking = rrf_fusion(
@@ -163,7 +176,7 @@ class HybridRetriever:
             reranked = self.rerank(
                 query, [c.text for c in candidates_for_rerank], top_k=final_top_k
             )
-            results = [self._rerank_to_rrf(r) for r in reranked]
+            results = [self._rerank_to_search_result(r) for r in reranked]
 
         return results
 
@@ -173,29 +186,16 @@ class HybridRetriever:
         semantic_results: List[Tuple[int, float]],
         keyword_results: List,
         final_top_k: int,
-    ) -> List[RRFResult]:
-        """Build RRFResult list from RRF fusion."""
-        sem_lookup = {idx: score for idx, score in semantic_results}
-        kw_lookup = {r.chunk_index: r.score for r in keyword_results}
-
+    ) -> List[SearchResult]:
+        """Build SearchResult list from RRF fusion."""
         results = []
         for chunk_idx, rrf_score in fused_ranking[:final_top_k]:
             if chunk_idx < len(self.chunks):
-                chunk = self.chunks[chunk_idx]
-                results.append(
-                    RRFResult(
-                        text=chunk["text"],
-                        score=rrf_score,
-                        metadata=chunk.get("metadata", {}),
-                        chunk_index=chunk_idx,
-                        semantic_score=sem_lookup.get(chunk_idx),
-                        keyword_score=kw_lookup.get(chunk_idx),
-                    )
-                )
+                results.append(self._to_search_result(chunk_idx, rrf_score))
         return results
 
-    def _rerank_to_rrf(self, rerank_result: RerankResult) -> RRFResult:
-        """Convert RerankResult to RRFResult, preserving metadata from chunks."""
+    def _rerank_to_search_result(self, rerank_result: RerankResult) -> SearchResult:
+        """Convert RerankResult to SearchResult, preserving metadata."""
         chunk_idx = -1
         metadata = {}
         for idx, chunk in enumerate(self.chunks):
@@ -203,24 +203,12 @@ class HybridRetriever:
                 chunk_idx = idx
                 metadata = chunk.get("metadata", {})
                 break
-        return RRFResult(
-            text=rerank_result.text,
-            score=rerank_result.rerank_score,
-            metadata=metadata,
+        return SearchResult(
             chunk_index=chunk_idx,
+            score=rerank_result.rerank_score,
+            text=rerank_result.text,
+            metadata=metadata,
         )
-
-    def _text_to_result(self, text: str) -> RRFResult:
-        """Convert text back to RRFResult using chunks list."""
-        for idx, chunk in enumerate(self.chunks):
-            if chunk["text"] == text:
-                return RRFResult(
-                    text=text,
-                    score=0.0,
-                    metadata=chunk.get("metadata", {}),
-                    chunk_index=idx,
-                )
-        return RRFResult(text=text, score=0.0, metadata={}, chunk_index=-1)
 
     def count(self) -> int:
         """Get number of indexed documents."""
