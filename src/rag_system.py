@@ -36,6 +36,7 @@ class RAGSystem:
         source_dir: Optional[Path] = None,
         index_dir: Optional[Path] = None,
         config: Optional[RAGConfig] = None,
+        loader: Optional[DocumentLoader] = None,
     ):
         """Initialize RAG system with all components."""
         self.source_dir = source_dir or Path("sources")
@@ -43,7 +44,7 @@ class RAGSystem:
         self._config = config or RAGConfig()
 
         # Initialize components with explicit config
-        self.document_loader = DocumentLoader(self.source_dir)
+        self.document_loader = loader or DocumentLoader(self.source_dir)
         self.retriever = HybridRetriever(config_override=self._config.retrieval)
         self.generator = OllamaGenerator(config=self._config.generation)
         self.index_manager = IndexManager(self.index_dir)
