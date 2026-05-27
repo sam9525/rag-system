@@ -9,6 +9,9 @@ import sys
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Default sources directory - relative to script location
+DEFAULT_SOURCES_DIR = Path(__file__).parent / "sources"
+
 from src.system.rag_system import RAGSystem
 from src.system.config import RAGConfig, GenerationConfig
 
@@ -25,7 +28,12 @@ AVAILABLE_MODELS = [
 ]
 
 # Default model (Gemma 4 4B)
-DEFAULT_MODEL_INDEX = 4
+DEFAULT_MODEL_NAME = "gemma4:e4b"
+# Derive index from model name for maintainability
+DEFAULT_MODEL_INDEX = next(
+    (i for i, m in enumerate(AVAILABLE_MODELS) if m[1] == DEFAULT_MODEL_NAME),
+    4,  # Fallback to index 4 if not found
+)
 
 # Module-level config instance
 _config = RAGConfig()
@@ -77,7 +85,7 @@ def sidebar_config():
         st.subheader("Document Source")
         source_dir = st.text_input(
             "Source Directory",
-            value="D:\\data\\Program\\Python\\rag-system\\sources",
+            value=str(DEFAULT_SOURCES_DIR),
             help="Path to folder containing PDF documents",
         )
 
@@ -103,7 +111,7 @@ def sidebar_config():
             help="Lower = more focused, Higher = more creative",
         )
 
-        # Only update config when values actually change
+# Update config only when settings change
         if (
             model_index != st.session_state.model_index
             or abs(temperature - st.session_state.temperature) > 0.05
