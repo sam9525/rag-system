@@ -123,30 +123,34 @@ class RAGASEvaluator:
 
         return scores
 
-    def run_case(self, case: EvalCase, verbose: bool = False) -> EvalResult:
+    def run_case(
+        self, case: EvalCase, retrieval_enabled: bool = True, verbose: bool = False
+    ) -> EvalResult:
         """Run RAGAS evaluation on a single test case.
 
         Args:
             case: EvalCase to evaluate.
+            retrieval_enabled: If True, run full RAG pipeline. If False, run baseline.
             verbose: If True, print intermediate results.
-
-        Returns:
-            EvalResult with ragas LLM-evaluated scores.
         """
-        # Get RAG response
-        rag_result = self.rag.query(case.question, rerank_mode=self.rerank_mode)
-        answer = rag_result.answer
-        sources = rag_result.sources
-
-        # Extract contexts
-        contexts = []
-        for chunk in rag_result.retrieved_chunks:
-            text = getattr(chunk, "text", str(chunk))
-            contexts.append(text)
+        if retrieval_enabled:
+            rag_result = self.rag.query(case.question, rerank_mode=self.rerank_mode)
+            answer = rag_result.answer
+            sources = rag_result.sources
+            contexts = [
+                getattr(chunk, "text", str(chunk))
+                for chunk in rag_result.retrieved_chunks
+            ]
+        else:
+            # Baseline: generate without retrieval
+            answer = self.query_baseline(case.question)
+            sources = []
+            contexts = []
 
         if verbose:
-            print(f"Question: {case.question}")
-            print(f"Answer: {answer}")
+            prefix = "" if retrieval_enabled else "[Baseline] "
+            print(f"{prefix}Question: {case.question}")
+            print(f"{prefix}Answer: {answer}")
 
         scores = {
             "faithfulness": 0.0,
@@ -161,14 +165,7 @@ class RAGASEvaluator:
                     response=answer,
                     retrieved_contexts=contexts,
                 )
-
-                # Apply nest_asyncio to allow nested event loops
-                import nest_asyncio
-
-                nest_asyncio.apply()
-
                 asyncio.run(self._score_sample(sample, scores))
-
                 if verbose:
                     print(
                         f"Faithfulness: {scores['faithfulness']:.2f}, "
@@ -191,22 +188,25 @@ class RAGASEvaluator:
         )
 
     def run_batch(
-        self, cases: List[EvalCase], verbose: bool = False
+        self,
+        cases: List[EvalCase],
+        retrieval_enabled: bool = True,
+        verbose: bool = False,
     ) -> List[EvalResult]:
         """Run RAGAS evaluation on multiple test cases.
 
         Args:
             cases: List of EvalCase to evaluate.
+            retrieval_enabled: If True, run full RAG pipeline. If False, run baseline.
             verbose: If True, print per-case results.
-
-        Returns:
-            List of EvalResult for each case.
         """
         print(f"[Evaluator] Starting batch evaluation of {len(cases)} cases...")
         results = []
         for i, case in enumerate(cases, 1):
             print(f"[Evaluator] [{i}/{len(cases)}] Processing case...")
-            result = self.run_case(case, verbose=verbose)
+            result = self.run_case(
+                case, retrieval_enabled=retrieval_enabled, verbose=verbose
+            )
             results.append(result)
             print(f"[Evaluator] [{i}/{len(cases)}] Case complete")
         print(f"[Evaluator] Batch evaluation complete: {len(results)} results")
@@ -236,91 +236,6 @@ class RAGASEvaluator:
             return self.rag.generator.generate(question, chunks=[], rag=False)
         except Exception as e:
             return f"Error generating baseline: {e}"
-
-    def run_baseline_case(self, case: EvalCase, verbose: bool = False) -> EvalResult:
-        """Run baseline evaluation on a single test case (no retrieval).
-
-        Args:
-            case: EvalCase to evaluate.
-            verbose: If True, print intermediate results.
-
-        Returns:
-            EvalResult with baseline scores (no retrieval).
-        """
-        # Get baseline response (no retrieval)
-        answer = self.query_baseline(case.question)
-
-        # Empty contexts for baseline
-        contexts = []
-
-        if verbose:
-            print(f"[Baseline] Question: {case.question}")
-            print(f"[Baseline] Answer: {answer[:100]}...")
-
-        scores = {
-            "faithfulness": 0.0,
-            "answer_relevancy": 0.0,
-            "context_relevance": 0.0,
-        }
-
-        if self._llm is not None:
-            try:
-                sample = SingleTurnSample(
-                    user_input=case.question,
-                    response=answer,
-                    retrieved_contexts=contexts,
-                )
-
-                import nest_asyncio
-
-                nest_asyncio.apply()
-
-                asyncio.run(self._score_sample(sample, scores))
-
-                if verbose:
-                    print(
-                        f"[Baseline] Faithfulness: {scores['faithfulness']:.2f}, "
-                        f"Answer Relevancy: {scores['answer_relevancy']:.2f}, "
-                        f"Context Relevance: {scores['context_relevance']:.2f}"
-                    )
-            except Exception as e:
-                import warnings
-
-                warnings.warn(f"RAGAS evaluation failed for baseline: {e}")
-
-        return EvalResult(
-            question=case.question,
-            answer=answer,
-            contexts=contexts,
-            sources=[],
-            faithfulness=scores["faithfulness"],
-            answer_relevancy=scores["answer_relevancy"],
-            context_relevance=scores["context_relevance"],
-        )
-
-    def run_baseline_batch(
-        self, cases: List[EvalCase], verbose: bool = False
-    ) -> List[EvalResult]:
-        """Run baseline evaluation on multiple test cases (no retrieval).
-
-        Args:
-            cases: List of EvalCase to evaluate.
-            verbose: If True, print per-case results.
-
-        Returns:
-            List of EvalResult for each baseline case.
-        """
-        print(
-            f"[Baseline] Starting baseline evaluation of {len(cases)} cases (no retrieval)..."
-        )
-        results = []
-        for i, case in enumerate(cases, 1):
-            print(f"[Baseline] [{i}/{len(cases)}] Processing case...")
-            result = self.run_baseline_case(case, verbose=verbose)
-            results.append(result)
-            print(f"[Baseline] [{i}/{len(cases)}] Case complete")
-        print(f"[Baseline] Batch evaluation complete: {len(results)} results")
-        return results
 
     def print_results(self, results: List[EvalResult]):
         """Print evaluation results as a summary table."""
