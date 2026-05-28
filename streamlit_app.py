@@ -76,6 +76,8 @@ def init_session_state():
         st.session_state.model_index = DEFAULT_MODEL_INDEX
     if "temperature" not in st.session_state:
         st.session_state.temperature = 0.3
+    if "rerank_mode" not in st.session_state:
+        st.session_state.rerank_mode = "hybrid"
     if "eval_result" not in st.session_state:
         st.session_state.eval_result = None
     if "eval_error" not in st.session_state:
@@ -116,13 +118,25 @@ def sidebar_config():
             help="Lower = more focused, Higher = more creative",
         )
 
+        # Rerank mode selection
+        rerank_mode = st.selectbox(
+            "Rerank Mode",
+            options=["hybrid", "semantic", "keyword"],
+            index=["hybrid", "semantic", "keyword"].index(st.session_state.rerank_mode),
+            format_func=lambda x: x.capitalize(),
+            help="hybrid=best overall, semantic=semantic similarity, keyword=BM25 keyword matching",
+            key="rerank_mode_selector",
+        )
+
         # Update config only when settings change
         if (
             model_index != st.session_state.model_index
             or abs(temperature - st.session_state.temperature) > 0.05
+            or rerank_mode != st.session_state.rerank_mode
         ):
             st.session_state.model_index = model_index
             st.session_state.temperature = temperature
+            st.session_state.rerank_mode = rerank_mode
             update_generation_config(temperature, model_index)
 
         st.subheader("Actions")
@@ -227,7 +241,8 @@ def main():
                 try:
                     try:
                         evaluator = RAGASEvaluator(
-                            st.session_state.rag_system, rerank_mode="hybrid"
+                            st.session_state.rag_system,
+                            rerank_mode=st.session_state.rerank_mode,
                         )
                         from src.evaluation.test_case import EvalCase
 
